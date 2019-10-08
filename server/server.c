@@ -17,30 +17,15 @@
 #include <fcntl.h>
 #include <getopt.h>
 
-#include "rw.h"
-#include "fd_manager.h"
 #include "cmds.h"
-#include "utils.h"
 
-#define NOT_LOGGED_IN 0
-#define LOGGING_IN 1
-#define LOGGED_IN 2
-#define FILE_TRANSFERING 3
-#define NO_CONNECTION 0
-#define PASV_MODE 1
-#define PORT_MODE 2
-#define LISTENING 3
-#define READY_TO_CONNECT 4
-#define READ 0
-#define WRITE 1
-#define BUFSIZE 8192
-#define MAX_CLIENTS FD_SETSIZE / 2
+
 
 
 
     //int client_conn_fds[MAX_CLIENTS], client_state[MAX_CLIENTS];
     //int client_trans_fds[MAX_CLIENTS];
-struct client_info clients[MAX_CLIENTS];
+//struct client_info clients[MAX_CLIENTS];
 int max_i, max_fd;
 fd_set allset;
 
@@ -109,51 +94,50 @@ int IsSocketClosed(int fd)
     return 1;
 }
 
-void serve_client(int fd, int idx) {
-    send_resp(fd, 220, NULL);
-    char message[1024];
+int serve_client(int fd, int idx) {
+    
     char sentence[1024];
     char check_s;
     int len;
     char cmd[10];
     char param[100];
     int code;
-    get_cmd(fd, message, 1023);
-    printf("%s\n", message);
-    
-    while(1) {
-        len = recv(fd, sentence, 8192, 0);
-        //长度小于2代表断开连接
-        if (len <= 0) break;
+    //get_cmd(fd, message, 1023);
+    //printf("%s\n", message);
+    len = recv(fd, sentence, 8192, 0);
+    //长度小于2代表断开连接
+    if (len <= 0)
+        return 0;
 
-        //对消息进行预处理
-        sentence[len] = '\0';
-        len = strip_crlf(sentence, len);
+    //对消息进行预处理
+    sentence[len] = '\0';
+    len = strip_crlf(sentence, len);
 
-        //对内容进行匹配
-        int word_count = sscanf(sentence, "%s %c", cmd, &check_s);
-
-        if (word_count <= 0)
-        {
-            printf("None string read.\n");
-            send_resp(fd, 500, NULL);
-            continue;
-        }
-        else if (word_count == 1) {
-            //处理无参数指令
-            code = cmd_router(cmd, NULL, idx);
-        }
-        else{
-            //处理有参数指令
-            strcpy(param, sentence + strlen(cmd) + 1);
-            code = cmd_router(cmd, param, idx);
-        }
-
-        //code为221则断开连接
-        if (code == 221) break;
+    //对内容进行匹配
+    int word_count = sscanf(sentence, "%s %c", cmd, &check_s);
+    printf("%s\n", cmd);
+    if (word_count <= 0)
+    {
+        printf("None string read.\n");
+        send_resp(fd, 500, NULL);
     }
-    close_trans_fd(idx);
-    close_conn_fd(idx);
+
+    else if (word_count == 1)
+    {
+        //处理无参数指令
+        code = cmd_router(cmd, NULL, idx);
+    }
+    else
+    {
+        //处理有参数指令
+        strcpy(param, sentence + strlen(cmd) + 1);
+        code = cmd_router(cmd, param, idx);
+    }
+
+    //code为221则断开连接
+    if (code == 221)
+        return 0;
+    return 1;
 }
 
 short unsigned lis_port = 21;
@@ -161,8 +145,7 @@ char root_folder[256] = {0};
 char check_s;
 
 int main(int argc, char **argv) {
-    strcpy(server_ip, "166.111.82.233");
-    server_port = 6789;
+    
     srand((int)time(0));
     int listenfd, connfd, tmpfd;		//����socket������socket��һ���������������ݴ���
     int i;
@@ -254,9 +237,10 @@ int main(int argc, char **argv) {
             else if (!manage_conn_fds(connfd)) {
                 close(connfd);
             }
-            char response[100];
-            strcpy(response, "220 hello\r\n");
-            send_response(response, connfd);
+            send_resp(connfd, 220, NULL);
+            //char response[100];
+            //strcpy(response, "220 hello\r\n");
+            //send_response(response, connfd);
             if (--nready <= 0) {
                 continue;
             }
@@ -267,7 +251,11 @@ int main(int argc, char **argv) {
                 continue;
             }
             if (FD_ISSET(tmpfd, &rset)) {
-                serve_client(tmpfd, i);
+                if(serve_client(tmpfd, i) == 0)
+                {
+                    close_trans_fd(i);
+                    close_conn_fd(i);
+                }
                 // if (IsSocketClosed(tmpfd)) {
                 //     close_conn_fd(i);
                 //     continue;
@@ -391,9 +379,10 @@ int main(int argc, char **argv) {
             {
                 continue;
             }
-            if (FD_ISSET(tmpfd, &wset)) {
+            if (FD_ISSET(tmpfd, &rset)){
                 int mode = clients[i].mode;
-                if (mode == LISTENING) {
+                if (mode == LISTENING)
+                {
                     int transfd;
                     //�ȴ�client������ -- ��������
                     if ((transfd = accept(tmpfd, NULL, NULL)) == -1)
@@ -403,12 +392,54 @@ int main(int argc, char **argv) {
                     }
                     close_trans_fd(i);
                     manage_trans_fds(transfd, i);
-                    if (--nready <= 0)
+                    clients[i].mode = LISTENING;
+                    //clients[i].mode = PASV_MODE;
+                    printf("listening pass\n");
+                }
+                if (mode == PORT_MODE || mode == PASV_MODE)
+                {
+                    if (clients[i].rw == WRITE)
                     {
+                        int f, nbytes;
+                        char buffer[BUFSIZE];
+                        memset(&buffer, 0, BUFSIZE);
+                        char filename[200];
+                        //strcpy(filename, connection_infos[i].filename);
+                        strcpy(filename, "rw.h");
+                        printf("get filename : [ %s ]\n", clients[i].filename);
+                        if ((f = open(clients[i].filename, O_WRONLY | O_CREAT | O_TRUNC, 0644)) < 0) //��ֻ���ķ�ʽ��clientҪ���ص��ļ�
+                        {
+                            printf("Open file Error!\n");
+                            buffer[0] = 'N';
+                            if (write(tmpfd, buffer, BUFSIZE) < 0)
+                            {
+                                printf("Write Error!At commd_get 1\n");
+                                exit(1);
+                            }
+                            return;
+                        }
+
+                        while ((nbytes = read(tmpfd, buffer, BUFSIZE)) > 0) //���ļ����ݶ���buffer��
+                        {
+                            printf("a line\n");
+                            printf("%s", buffer);
+                            if (write(f, buffer, nbytes) < 0) //��buffer���ͻ�client
+                            {
+                                printf("Write Error! At commd_get 3!\n");
+                                close(f);
+                                exit(1);
+                            }
+                        }
+                        close(f);
+                        close_trans_fd(i);
+                        send_resp(clients[i].connect_fd, 226, NULL);
                         continue;
                     }
-                    clients[i].mode = PASV_MODE;
                 }
+            }
+            if (FD_ISSET(tmpfd, &wset)) {
+                int mode = clients[i].mode;
+                
                 if (mode == READY_TO_CONNECT) {
 
                 }
@@ -424,8 +455,8 @@ int main(int argc, char **argv) {
                         char filename[200];
                         //strcpy(filename, connection_infos[i].filename);
                         strcpy(filename, "rw.h");
-                        printf("get filename : [ %s ]\n", filename);
-                        if ((f = open(filename, O_RDONLY)) < 0) //��ֻ���ķ�ʽ��clientҪ���ص��ļ�
+                        printf("get filename : [ %s ]\n", clients[i].filename);
+                        if ((f = open(clients[i].filename, O_RDONLY)) < 0) //��ֻ���ķ�ʽ��clientҪ���ص��ļ�
                         {
                             printf("Open file Error!\n");
                             buffer[0] = 'N';
@@ -437,18 +468,10 @@ int main(int argc, char **argv) {
                             return;
                         }
 
-                        // buffer[0] = 'Y'; //�˴���ʾ���ļ���ȡ�ɹ�
-                        // if (write(tmpfd, buffer, BUFSIZE) < 0)
-                        // {
-                        //     printf("Write Error! At commd_get 2!\n");
-                        //     close(f);
-                        //     exit(1);
-                        // }
-
                         while ((nbytes = read(f, buffer, BUFSIZE)) > 0) //���ļ����ݶ���buffer��
                         {
                             printf("a line\n");
-                            //printf("%s", buffer);
+                            printf("%s", buffer);
                             if (write(tmpfd, buffer, nbytes) < 0) //��buffer���ͻ�client
                             {
                                 printf("Write Error! At commd_get 3!\n");
@@ -456,15 +479,12 @@ int main(int argc, char **argv) {
                                 exit(1);
                             }
                         }
-
                         close(f);
                         close_trans_fd(i);
-
+                        send_resp(clients[i].connect_fd, 226, NULL);
                         continue;
                     }
-                    else {
-
-                    }
+                    
                 }
             }
         }
