@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <fcntl.h>
+#include <getopt.h>
 
 #include "rw.h"
 #include "fd_manager.h"
@@ -44,27 +45,27 @@ fd_set allset;
 int start_listening(int port) {
     int listenfd;
     struct sockaddr_in addr;
-    //´´½¨socket
+    //ï¿½ï¿½ï¿½ï¿½socket
     if ((listenfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
     {
         printf("Error socket(): %s(%d)\n", strerror(errno), errno);
         return -1;
     }
 
-    //ÉèÖÃ±¾»úµÄipºÍport
+    //ï¿½ï¿½ï¿½Ã±ï¿½ï¿½ï¿½ï¿½ï¿½ipï¿½ï¿½port
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
-    addr.sin_addr.s_addr = htonl(INADDR_ANY); //¼àÌý"0.0.0.0"
+    addr.sin_addr.s_addr = htonl(INADDR_ANY); //ï¿½ï¿½ï¿½ï¿½"0.0.0.0"
 
-    //½«±¾»úµÄipºÍportÓësocket°ó¶¨
+    //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ipï¿½ï¿½portï¿½ï¿½socketï¿½ï¿½
     if (bind(listenfd, (struct sockaddr *)&addr, sizeof(addr)) == -1)
     {
         printf("Error bind(): %s(%d)\n", strerror(errno), errno);
         return -1;
     }
 
-    //¿ªÊ¼¼àÌýsocket
+    //ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½socket
     if (listen(listenfd, 10) == -1)
     {
         printf("Error listen(): %s(%d)\n", strerror(errno), errno);
@@ -78,27 +79,27 @@ int start_connecting(int port, char *ip) {
     int sockfd;
     struct sockaddr_in addr;
 
-    //´´½¨socket
+    //ï¿½ï¿½ï¿½ï¿½socket
     if ((sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
     {
         printf("Error socket(): %s(%d)\n", strerror(errno), errno);
         return -1;
     }
 
-    //ÉèÖÃÄ¿±êÖ÷»úµÄipºÍport
+    //ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ipï¿½ï¿½port
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
     printf("nmd,%s\n", ip);
     printf("%d\n", port);
-    if (inet_pton(AF_INET, "192.168.11.131", &addr.sin_addr) <= 0)
-    { //×ª»»ipµØÖ·:µã·ÖÊ®½øÖÆ-->¶þ½øÖÆ
+    if (inet_pton(AF_INET, ip, &addr.sin_addr) <= 0)
+    { //×ªï¿½ï¿½ipï¿½ï¿½Ö·:ï¿½ï¿½ï¿½Ê®ï¿½ï¿½ï¿½ï¿½-->ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         printf("Error inet_pton(): %s(%d)\n", strerror(errno), errno);
         close(sockfd);
         return -1;
     }
     printf("this is sockfd: %d\n",sockfd);
-    //Á¬½ÓÉÏÄ¿±êÖ÷»ú£¨½«socketºÍÄ¿±êÖ÷»úÁ¬½Ó£©-- ×èÈûº¯Êý
+    //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½socketï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó£ï¿½-- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     sleep(3);
     printf("waking up.\n");
     if (connect(sockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
@@ -188,15 +189,54 @@ int IsSocketClosed(int fd)
     return 1;
 }
 
-
+short unsigned lis_port = 21;
+char root_folder[256] = {0};
+char check_s;
 
 int main(int argc, char **argv) {
     srand((int)time(0));
-    int listenfd, connfd, tmpfd;		//¼àÌýsocketºÍÁ¬½Ósocket²»Ò»Ñù£¬ºóÕßÓÃÓÚÊý¾Ý´«Êä
+    int listenfd, connfd, tmpfd;		//ï¿½ï¿½ï¿½ï¿½socketï¿½ï¿½ï¿½ï¿½ï¿½ï¿½socketï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý´ï¿½ï¿½ï¿½
     int i;
     int nready;
     
-    
+
+    int opt;
+
+    const struct option arg_options[] = {
+
+        {"port", required_argument, NULL, 'p'},
+
+        {"root", required_argument, NULL, 'r'},
+
+        {NULL, 0, NULL, 0},
+    };
+
+    while ((opt = getopt_long_only(argc, (char *const *)argv, "p:r:", arg_options, NULL)) != -1)
+    {
+        switch (opt)
+        {
+        case 'r':
+            if (access(optarg, 0))
+            {
+                printf("wrong path given: %s.\n", optarg);
+                return 1;
+            }
+            strcpy(root_folder, optarg);
+            break;
+        case 'p':
+            if (sscanf(optarg, "%hd%c", &lis_port, &check_s) != 1)
+            {
+                printf("wrong port given: %s.\n", optarg);
+                return 1;
+            }
+            break;
+        case '?':
+            printf("wrong argument.\n");
+            return 1;
+        }
+    }
+    printf("%d\n", lis_port);
+    printf("%s\n", root_folder);
     struct sockaddr_in addr;
     fd_set rset, wset;
     char sentence[8192];
@@ -221,7 +261,7 @@ int main(int argc, char **argv) {
     }
     FD_ZERO(&allset);
     FD_SET(listenfd, &allset);
-    //³ÖÐø¼àÌýÁ¬½ÓÇëÇó
+    //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     while (1) {
         
         rset = allset;
@@ -238,14 +278,16 @@ int main(int argc, char **argv) {
 
         if (FD_ISSET(listenfd, &rset)) {
             
-            //µÈ´ýclientµÄÁ¬½Ó -- ×èÈûº¯Êý
+            //ï¿½È´ï¿½clientï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ -- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             if ((connfd = accept(listenfd, NULL, NULL)) == -1) {
                 printf("Error accept(): %s(%d)\n", strerror(errno), errno);
             }
             else if (!manage_conn_fds(connfd)) {
                 close(connfd);
             }
-            
+            char response[100];
+            strcpy(response, "220 hello\r\n");
+            send_response(response, connfd);
             if (--nready <= 0) {
                 continue;
             }
@@ -270,17 +312,17 @@ int main(int argc, char **argv) {
                 char response[100];
                 if (login_state == NOT_LOGGED_IN) {
                     if(strcmp(message, "q") == 0) {
-                        strcpy(response, "Permission granted. Please enter an email address as the password:\r\n");
+                        strcpy(response, "200 Permission granted. Please enter an email address as the password:\r\n");
                         login_state = LOGGING_IN;
                     } else {
-                        strcpy(response, "Please log in.\r\n");
+                        strcpy(response, "200 Please log in.\r\n");
                     }
                 } else if (login_state == LOGGING_IN) {
                     if(strncmp(message, "PASS", 4) == 0) {
-                        strcpy(response, "You have successfully logged in. Welcome.\r\n");
+                        strcpy(response, "200 You have successfully logged in. Welcome.\r\n");
                         login_state = LOGGED_IN;
                     } else {
-                        strcpy(response, "Please use PASS to pass a password.\r\n");
+                        strcpy(response, "200 Please use PASS to pass a password.\r\n");
                     }
                 } else if (login_state == LOGGED_IN) {
                     if(strcmp(message, "SYST") == 0) {
@@ -385,7 +427,7 @@ int main(int argc, char **argv) {
                 int mode = connection_infos[i].mode;
                 if (mode == LISTENING) {
                     int transfd;
-                    //µÈ´ýclientµÄÁ¬½Ó -- ×èÈûº¯Êý
+                    //ï¿½È´ï¿½clientï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ -- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                     if ((transfd = accept(tmpfd, NULL, NULL)) == -1)
                     {
                         printf("Error accept(): %s(%d)\n", strerror(errno), errno);
@@ -415,7 +457,7 @@ int main(int argc, char **argv) {
                         //strcpy(filename, connection_infos[i].filename);
                         strcpy(filename, "rw.h");
                         printf("get filename : [ %s ]\n", filename);
-                        if ((f = open(filename, O_RDONLY)) < 0) //ÒÔÖ»¶ÁµÄ·½Ê½´ò¿ªclientÒªÏÂÔØµÄÎÄ¼þ
+                        if ((f = open(filename, O_RDONLY)) < 0) //ï¿½ï¿½Ö»ï¿½ï¿½ï¿½Ä·ï¿½Ê½ï¿½ï¿½clientÒªï¿½ï¿½ï¿½Øµï¿½ï¿½Ä¼ï¿½
                         {
                             printf("Open file Error!\n");
                             buffer[0] = 'N';
@@ -427,7 +469,7 @@ int main(int argc, char **argv) {
                             return;
                         }
 
-                        // buffer[0] = 'Y'; //´Ë´¦±êÊ¾³öÎÄ¼þ¶ÁÈ¡³É¹¦
+                        // buffer[0] = 'Y'; //ï¿½Ë´ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½È¡ï¿½É¹ï¿½
                         // if (write(tmpfd, buffer, BUFSIZE) < 0)
                         // {
                         //     printf("Write Error! At commd_get 2!\n");
@@ -435,11 +477,11 @@ int main(int argc, char **argv) {
                         //     exit(1);
                         // }
 
-                        while ((nbytes = read(f, buffer, BUFSIZE)) > 0) //½«ÎÄ¼þÄÚÈÝ¶Áµ½bufferÖÐ
+                        while ((nbytes = read(f, buffer, BUFSIZE)) > 0) //ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½Ý¶ï¿½ï¿½ï¿½bufferï¿½ï¿½
                         {
                             printf("a line\n");
                             //printf("%s", buffer);
-                            if (write(tmpfd, buffer, nbytes) < 0) //½«buffer·¢ËÍ»Øclient
+                            if (write(tmpfd, buffer, nbytes) < 0) //ï¿½ï¿½bufferï¿½ï¿½ï¿½Í»ï¿½client
                             {
                                 printf("Write Error! At commd_get 3!\n");
                                 close(f);
