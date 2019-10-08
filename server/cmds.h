@@ -1,32 +1,43 @@
+extern char server_ip[20];
+extern int server_port;
 
-void cmd_user(char *param);
+#define NOT_LOGGED_IN 0
+#define LOGGING_IN 1
+#define LOGGED_IN 2
+#define FILE_TRANSFERING 3
 
-void cmd_pass(char *param);
 
-void cmd_syst();
 
-void cmd_type(char *param);
+int cmd_router(char *cmd, char *param, int idx);
 
-void cmd_quit(char *param);
+int cmd_user(char *param, int idx);
 
-void cmd_pasv();
+int cmd_pass(char *param, int idx);
 
-void cmd_port(char *param);
+int cmd_syst(char *param, int idx);
 
-void cmd_retr(char *param);
+int cmd_type(char *param, int idx);
 
-void cmd_stor(char *param);
+int cmd_quit(char *param, int idx);
 
-void cmd_mkd(char *param);
+int cmd_pasv(char *param, int idx);
 
-void cmd_cwd(char *param);
+int cmd_port(char *param, int idx);
 
-void cmd_pwd(char *param);
+int cmd_retr(char *param, int idx);
 
-void cmd_list(char *param);
+int cmd_stor(char *param, int idx);
 
-void cmd_rmd(char *param);
+int cmd_mkd(char *param);
 
-void cmd_rnfr(char *param);
+int cmd_cwd(char *param);
 
-void cmd_rnto(char *param);
+int cmd_pwd(char *param);
+
+int cmd_list(char *param);
+
+int cmd_rmd(char *param);
+
+int cmd_rnfr(char *param);
+
+int cmd_rnto(char *param);
