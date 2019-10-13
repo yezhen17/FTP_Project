@@ -17,6 +17,7 @@
 
 #define NOT_LOGGED_IN 0
 #define LOGGED_IN 2
+#define WAITING_RNTO 4
 #define NO_CONNECTION 0
 #define PASV_MODE 1
 #define PORT_MODE 2
@@ -36,12 +37,14 @@ struct client_info
     struct sockaddr_in addr;
     int rw;
     char filename[200];
+    char prefix[200];
+    char rename_file[200];
 };
 //extern int client_conn_fds[MAX_CLIENTS], client_state[MAX_CLIENTS];
 //extern int client_trans_fds[MAX_CLIENTS];
 extern struct client_info clients[MAX_CLIENTS];
-extern int max_i, max_fd;
-extern fd_set allset;
+int max_i, max_fd;
+fd_set allset;
 
 int manage_conn_fds(int cur_fd);
 

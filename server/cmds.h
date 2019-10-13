@@ -16,6 +16,7 @@
 #define READY_TO_CONNECT 4
 #define READ 0
 #define WRITE 1
+#define LIST 2
 #define BUFSIZE 8192
 #define MAX_CLIENTS FD_SETSIZE / 2
 
@@ -43,18 +44,18 @@ int cmd_retr(char *param, int idx);
 
 int cmd_stor(char *param, int idx);
 
-int cmd_mkd(char *param);
+int cmd_mkd(char *param, int idx);
 
-int cmd_cwd(char *param);
+int cmd_cwd(char *param, int idx);
 
-int cmd_pwd(char *param);
+int cmd_pwd(char *param, int idx);
 
-int cmd_list(char *param);
+int cmd_list(char *param, int idx);
 
-int cmd_rmd(char *param);
+int cmd_rmd(char *param, int idx);
 
-int cmd_rnfr(char *param);
+int cmd_rnfr(char *param, int idx);
 
-int cmd_rnto(char *param);
+int cmd_rnto(char *param, int idx);
 
 #endif

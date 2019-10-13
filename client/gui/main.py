@@ -28,6 +28,7 @@ class FTPClient():
         self.funcWin.portBtn.clicked.connect(self.set_port)
         self.funcWin.actionSet_binary_mode.triggered.connect(self.set_type)
         self.funcWin.actionSystem_Info.triggered.connect(self.ask_syst)
+        self.funcWin.downloadBtn.clicked.connect(self.download_file)
         #self.funcWin.close.connect(self.printf)
         self.funcWin.close_signal.connect(self.close_connect)
 
@@ -74,8 +75,8 @@ class FTPClient():
 
     def download_file(self):
 
-        src_path = self.funcWin.local_dir
-        dest_path = 'out.txt'
+        src_path = 'out.txt'
+        dest_path = self.funcWin.local_dir
         self.client.download_file(src_path, dest_path)
 
 

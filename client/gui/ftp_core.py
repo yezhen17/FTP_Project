@@ -2,6 +2,8 @@ import ftplib as ftp
 import socket
 import os
 import random
+import struct
+
 
 def get_free_port(ip):
     while True:
@@ -106,9 +108,11 @@ class Client():
     def pasv_cmd(self):
         self.send_cmd('PASV')
         _, self.resp = self.recv_resp()
-        addr = self.resp.split(' ')[-1][:-2]
+        addr = self.resp.split('=')[-1]
+        print(self.resp)
         addr = addr.split(',')
-        self.data_addr = ('.'.join(addr[:3]), int(addr[4] * 256 + addr[5]))
+        self.data_addr = ('.'.join(addr[:4]), int(addr[4]) * 256 + int(addr[5]))
+        print(self.data_addr)
 
     def port_cmd(self):
         port = get_free_port(self.this_ip)
@@ -126,16 +130,29 @@ class Client():
         self.stor_cmd(src_path, dest_path)
 
     def retr_cmd(self, src_path, dest_path):
+        self.send_cmd('RETR ' + src_path)
+        _, _ = self.recv_resp()
         if self.isPasv:
             self.data_s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.data_s.connect(self.data_addr)
-        self.send_cmd('RETR ' + src_path)
-        with open(dest_path, 'wb') as f:
-            while True:
-                data = self.data_s.recv(8092)
-                if not data:
-                    break
-                f.write(data)
+            try:
+                self.data_s.connect(self.data_addr)
+            except:
+                print("something wrong")
+                return
+        dir = os.path.join(dest_path, os.path.basename(src_path))
+        try:
+            if os.path.exists(dir):
+                os.remove(dir)
+            with open(dir, 'ab+') as f:
+                print(dir)
+                while True:
+                    data = self.data_s.recv(8092)
+                    print(data)
+                    if not data:
+                        break
+                    f.write(data)
+        except:
+            print("error")
         _, self.resp = self.recv_resp()
 
     def stor_cmd(self, src_path, dest_path):

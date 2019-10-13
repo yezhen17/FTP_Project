@@ -1,5 +1,5 @@
 #include <sys/socket.h>
-#include <sys/select.h>
+
 #include <sys/types.h>    
 #include <sys/stat.h>
 
@@ -18,16 +18,7 @@
 #include <getopt.h>
 
 #include "cmds.h"
-
-
-
-
-
-    //int client_conn_fds[MAX_CLIENTS], client_state[MAX_CLIENTS];
-    //int client_trans_fds[MAX_CLIENTS];
-//struct client_info clients[MAX_CLIENTS];
-int max_i, max_fd;
-fd_set allset;
+#include "server.h"
 
 int start_listening(int port) {
     int listenfd;
@@ -141,7 +132,6 @@ int serve_client(int fd, int idx) {
 }
 
 short unsigned lis_port = 21;
-char root_folder[256] = {0};
 char check_s;
 
 int main(int argc, char **argv) {
@@ -150,8 +140,8 @@ int main(int argc, char **argv) {
     int listenfd, connfd, tmpfd;		//����socket������socket��һ���������������ݴ���
     int i;
     int nready;
-    
-
+    char root_folder[200];
+    strcpy(root_folder, "/home/cyz/tmp");
     int opt;
 
     const struct option arg_options[] = {
@@ -210,6 +200,7 @@ int main(int argc, char **argv) {
         clients[i].transfer_fd = -1;
         clients[i].state = NOT_LOGGED_IN;
         clients[i].mode = NO_CONNECTION;
+        strcpy(clients[i].prefix, root_folder);
     }
     FD_ZERO(&allset);
     FD_SET(listenfd, &allset);
@@ -381,7 +372,7 @@ int main(int argc, char **argv) {
             }
             if (FD_ISSET(tmpfd, &rset)){
                 int mode = clients[i].mode;
-                if (mode == LISTENING)
+                if (mode == PASV_MODE)
                 {
                     int transfd;
                     //�ȴ�client������ -- ��������
@@ -392,11 +383,11 @@ int main(int argc, char **argv) {
                     }
                     close_trans_fd(i);
                     manage_trans_fds(transfd, i);
-                    clients[i].mode = LISTENING;
+                    clients[i].mode = PORT_MODE;
                     //clients[i].mode = PASV_MODE;
                     printf("listening pass\n");
                 }
-                if (mode == PORT_MODE || mode == PASV_MODE)
+                if (mode == PORT_MODE || mode == PORT_MODE)
                 {
                     if (clients[i].rw == WRITE)
                     {
@@ -437,13 +428,14 @@ int main(int argc, char **argv) {
                     }
                 }
             }
-            if (FD_ISSET(tmpfd, &wset)) {
+            else if (FD_ISSET(tmpfd, &wset)) {
+                
                 int mode = clients[i].mode;
                 
                 if (mode == READY_TO_CONNECT) {
 
                 }
-                if (mode == PORT_MODE || mode == PASV_MODE)
+                if (mode == PORT_MODE || mode == PORT_MODE)
                 {
                     if(clients[i].rw == READ) {
                         //char response[100] = "this is a test, man.";
@@ -472,19 +464,40 @@ int main(int argc, char **argv) {
                         {
                             printf("a line\n");
                             printf("%s", buffer);
-                            if (write(tmpfd, buffer, nbytes) < 0) //��buffer���ͻ�client
+                            int p = 0;
+                            while (p < nbytes)
                             {
-                                printf("Write Error! At commd_get 3!\n");
-                                close(f);
-                                exit(1);
+                                int n = write(tmpfd, buffer + p, nbytes);
+                                if (n < 0)
+                                {
+                                    printf("Error write(): %s(%d)\n", strerror(errno), errno);
+                                    close(connfd);
+                                    continue;
+                                }
+                                else if (n == 0)
+                                {
+                                    break;
+                                }
+                                else
+                                {
+                                    p += n;
+                                }
                             }
+                            // if (write(tmpfd, buffer, nbytes) < 0) //��buffer���ͻ�client
+                            // {
+                            //     printf("Write Error! At commd_get 3!\n");
+                            //     close(f);
+                            //     exit(1);
+                            // }
                         }
                         close(f);
                         close_trans_fd(i);
                         send_resp(clients[i].connect_fd, 226, NULL);
                         continue;
                     }
-                    
+                    else if (clients[i].rw == LIST) {
+                        reply_list(i, clients[i].filename);
+                    }
                 }
             }
         }

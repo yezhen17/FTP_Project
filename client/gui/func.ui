@@ -75,11 +75,28 @@
       </spacer>
      </item>
      <item>
-      <widget class="QPushButton" name="dir_btn">
-       <property name="text">
-        <string>Choose a directory</string>
+      <layout class="QHBoxLayout" name="horizontalLayout_2">
+       <property name="sizeConstraint">
+        <enum>QLayout::SetDefaultConstraint</enum>
        </property>
-      </widget>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <item>
+        <widget class="QPushButton" name="dir_btn">
+         <property name="text">
+          <string>Choose a directory</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="downloadBtn">
+         <property name="text">
+          <string>download</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </item>
     </layout>
    </widget>

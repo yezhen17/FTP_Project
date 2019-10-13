@@ -138,6 +138,9 @@ void send_resp(int fd, int code, char *custom_resp)
     case 530:
         sprintf(resp, "%d %s\r\n", code, "Permission denied.");
         break;
+    case 550:
+        sprintf(resp, "%d %s\r\n", code, "No such file or directory.");
+        break;
     case 200:
         sprintf(resp, "%d %s\r\n", code, custom_resp);
         break;
@@ -156,8 +159,14 @@ void send_resp(int fd, int code, char *custom_resp)
     case 230:
         sprintf(resp, "%d %s\r\n", code, "Permission granted.");
         break;
+    case 250:
+        sprintf(resp, "%d %s\r\n", code, "Okay.");
+        break;
     case 331:
         sprintf(resp, "%d %s\r\n", code, "Guest login ok, send your complete e-mail address as password.");
+        break;
+    case 350:
+        sprintf(resp, "%d %s\r\n", code, "File exists.");
         break;
     case 425:
         sprintf(resp, "%d %s\r\n", code, "Please establish a connection first.");

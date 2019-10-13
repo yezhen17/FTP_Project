@@ -35,6 +35,18 @@ int cmd_router(char *cmd, char *param, int idx)
         send_resp(fd, 530, NULL);
         return 530;
     }
+    if (strcmp(cmd, "RNTO") == 0)
+    {
+        code = cmd_rnto(param, idx);
+    }
+    else if (state == WAITING_RNTO) {
+        send_resp(fd, 530, NULL);
+        return 530;
+    }
+    if (strcmp(cmd, "RNFR") == 0)
+    {
+        code = cmd_rnfr(param, idx);
+    }
 
     else if (strcmp(cmd, "TYPE") == 0)
     {
@@ -63,6 +75,26 @@ int cmd_router(char *cmd, char *param, int idx)
     else if (strcmp(cmd, "RETR") == 0)
     {
         code = cmd_retr(param, idx);
+    }
+    else if (strcmp(cmd, "PWD") == 0)
+    {
+        code = cmd_pwd(param, idx);
+    }
+    else if (strcmp(cmd, "CWD") == 0)
+    {
+        code = cmd_cwd(param, idx);
+    }
+    else if (strcmp(cmd, "MKD") == 0)
+    {
+        code = cmd_mkd(param, idx);
+    }
+    else if (strcmp(cmd, "RMD") == 0)
+    {
+        code = cmd_rmd(param, idx);
+    }
+    else if (strcmp(cmd, "LIST") == 0)
+    {
+        code = cmd_list(param, idx);
     }
     return code;
 }
@@ -121,6 +153,11 @@ int cmd_type(char *param, int idx)
     int fd = clients[idx].connect_fd;
     int state = clients[idx].state;
     if (strcmp(param, "I") == 0)
+    {
+        send_resp(fd, 200, "Type set to I.");
+        return 200;
+    }
+    if (strcmp(param, "A") == 0)
     {
         send_resp(fd, 200, "Type set to I.");
         return 200;
@@ -248,6 +285,7 @@ int cmd_port(char *param, int idx)
 int prepare_transfer(char *param, int idx) {
     int fd = clients[idx].connect_fd;
     int mode = clients[idx].mode;
+    printf("transfering");
     send_resp(fd, 150, NULL);
     if (mode == NO_CONNECTION) // 有待考虑
     {
@@ -298,30 +336,213 @@ int cmd_stor(char *param, int idx)
     clients[idx].rw = WRITE;
 }
 
-int cmd_mkd(char *param)
+int cmd_mkd(char *param, int idx)
 {
+    int fd = clients[idx].connect_fd;
+    if (param == NULL)
+    {
+        send_resp(fd, 504, NULL);
+        return 504;
+    }
+
+    if (strstr(param, "..") != NULL)
+    {
+        //不能有..
+        send_resp(fd, 530, NULL);
+        return 530;
+    }
+    char dest[200];
+    gen_absdir(clients[idx].prefix, param, dest);
+    printf("%s", dest);
+    if (mkdir(dest, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == 0) {
+        send_resp(fd, 250, NULL);
+        return 250;
+    }
+    else {
+        send_resp(fd, 550, NULL);
+        return 550;
+    }
 }
 
-int cmd_cwd(char *param)
+int cmd_cwd(char *param, int idx)
 {
+    int fd = clients[idx].connect_fd;
+    if (param == NULL)
+    {
+        send_resp(fd, 504, NULL);
+        return 504;
+    }
+
+    if (strstr(param, "..") != NULL)
+    {
+        //不能有..
+        send_resp(fd, 530, NULL);
+        return 530;
+    }
+
+    int code;
+    char dest[200];
+    gen_absdir(clients[idx].prefix, param, dest);
+    if (folder_isvalid(dest))
+    {
+        strcpy(clients[idx].prefix, dest);
+        send_resp(fd, 250, NULL);
+        return 250;
+    }
+    else
+    {
+        send_resp(fd, 550, NULL);
+        return 550;
+    }
 }
 
-int cmd_pwd(char *param)
+int cmd_pwd(char *param, int idx)
 {
+    int fd = clients[idx].connect_fd;
+    if (param != NULL)
+    {
+        send_resp(fd, 501, NULL);
+        return 501;
+    }
+    char resp[200];
+    // may need to replace double quotes later
+    sprintf(resp, "\"%s\" is current directory.", clients[idx].prefix);
+    send_resp(fd, 257, resp);
+    return 257;
 }
 
-int cmd_list(char *param)
+int cmd_list(char *param, int idx)
 {
+    int fd = clients[idx].connect_fd;
+    if (param != NULL)
+    {
+        char dest[256];
+        gen_absdir(clients[idx].prefix, param, dest);
+        if (!file_isvalid(dest))
+        {
+            send_resp(fd, 451, "failed, uncorrect pathname.");
+            //sess->current_pasv = -1;
+            return 451;
+        }
+        else
+        {
+            //send_resp(fd, 150, "Begin listing.");
+            // int temp_code = reply_list(idx, dest);
+            // send_resp(fd, temp_code, NULL);
+            // //sess->current_pasv = -1;
+            // return temp_code;
+            prepare_transfer(dest, idx);
+            clients[idx].rw = LIST;
+        }
+    }
+    else
+    {
+        //send_resp(fd, 150, "Begin listing.");
+        // int temp_code = reply_list(idx, clients[idx].prefix);
+        // send_resp(fd, temp_code, NULL);
+        // //sess->current_pasv = -1;
+        // return temp_code;
+        prepare_transfer(clients[idx].prefix, idx);
+        clients[idx].rw = LIST;
+    }
 }
 
-int cmd_rmd(char *param)
+int cmd_rmd(char *param, int idx)
 {
+    int fd = clients[idx].connect_fd;
+    if (param == NULL)
+    {
+        send_resp(fd, 504, NULL);
+        return 504;
+    }
+
+    if (strstr(param, "..") != NULL)
+    {
+        //不能有..
+        send_resp(fd, 530, NULL);
+        return 530;
+    }
+    char dest[200];
+    gen_absdir(clients[idx].prefix, param, dest);
+    if (recursive_rmdir(dest) == 0)
+    {
+        send_resp(fd, 250, NULL);
+        return 250;
+    }
+    else
+    {
+        send_resp(fd, 550, NULL);
+        return 550;
+    }
 }
 
-int cmd_rnfr(char *param)
+int cmd_rnfr(char *param, int idx)
 {
+    int fd = clients[idx].connect_fd;
+    if (param == NULL)
+    {
+        send_resp(fd, 504, NULL);
+        return 504;
+    }
+
+    if (strstr(param, "..") != NULL)
+    {
+        //不能有..
+        send_resp(fd, 530, NULL);
+        return 530;
+    }
+    char dest[200];
+    gen_absdir(clients[idx].prefix, param, dest);
+    if (file_isvalid(dest))
+    {
+        clients[idx].state = WAITING_RNTO;
+        strcpy(clients[idx].rename_file, dest);
+        send_resp(fd, 350, NULL);
+        return 350;
+    }
+    else
+    {
+        send_resp(fd, 550, NULL);
+        return 550;
+    }
 }
 
-int cmd_rnto(char *param)
+int cmd_rnto(char *param, int idx)
 {
+    int fd = clients[idx].connect_fd;
+    int state = clients[idx].state;
+    clients[idx].state = LOGGED_IN; // 无论成功与否都结束RENAME？
+    if (state != WAITING_RNTO) 
+    {
+        send_resp(fd, 503, "Previous command is not RNFR.");
+        return 503;
+    }
+    if (param == NULL)
+    {
+        send_resp(fd, 504, NULL);
+        return 504;
+    }
+
+    if (strstr(param, "..") != NULL)
+    {
+        //不能有..
+        send_resp(fd, 530, NULL);
+        return 530;
+    }
+    char dest[200];
+    gen_absdir(clients[idx].prefix, param, dest);
+
+    char shell_cmd[512];
+    sprintf(shell_cmd, "mv \"%s\" \"%s\"", clients[idx].rename_file, dest);
+    if (system(shell_cmd) == -1)
+    {
+        printf("Error running shell: %s(%d)\n", strerror(errno), errno);
+        send_resp(fd, 550, NULL);
+        return 550;
+    }
+    else
+    {
+        send_resp(fd, 250, NULL);
+        return 250;
+    }
 }
