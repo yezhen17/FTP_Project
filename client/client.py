@@ -18,8 +18,14 @@ ftp.login(user=username, passwd=password)
 ftp.sendcmd('SYST')
 ftp.sendcmd('TYPE I')
 ftp.set_pasv(True)
-filename = "p1.exe"
-filename1 = "out.txt"
-ftp.retrbinary('RETR %s' % filename, open(filename, 'wb').write)
-ftp.storbinary('STOR %s' % filename1, open(filename1, 'rb'))
+#filename = "p1.exe"
+filename1 = "p1.exe"
+#ftp.retrbinary('RETR %s' % filename, open(filename, 'wb').write)
+#ftp.storbinary('STOR %s' % filename1, open(filename1, 'rb'))
+ftp.sendcmd('MKD testfolder')
+ftp.sendcmd('PWD')
+ftp.sendcmd('CWD testfolder')
+ftp.sendcmd('MKD testfolder')
+ftp.sendcmd('RMD testfolder')
+#ftp.quit()
 #print(ftp.getwelcome())
