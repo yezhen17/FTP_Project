@@ -1,4 +1,5 @@
-#include "rw.h"
+#include "global.h"
+#include "rw_utils.h"
 void get_cmd(int fd, char *message, int message_len)
 {
     int p = 0;
@@ -26,82 +27,82 @@ void get_cmd(int fd, char *message, int message_len)
     message[p - 1] = '\0';
 }
 
-void send_response(char *response, int tmpfd)
-{
-    int len = strlen(response);
-    response[len] = '\0';
-    //printf("%d\n", len);
-    int p = 0;
-    while (p < len)
-    {
-        int n = write(tmpfd, response + p, len + 1 - p);
-        if (n < 0)
-        {
-            printf("Error write(): %s(%d)\n", strerror(errno), errno);
-            continue;
-        }
-        else
-        {
-            p += n;
-        }
-    }
-}
+// void send_response(char *response, int tmpfd)
+// {
+//     int len = strlen(response);
+//     response[len] = '\0';
+//     //printf("%d\n", len);
+//     int p = 0;
+//     while (p < len)
+//     {
+//         int n = write(tmpfd, response + p, len + 1 - p);
+//         if (n < 0)
+//         {
+//             printf("Error write(): %s(%d)\n", strerror(errno), errno);
+//             continue;
+//         }
+//         else
+//         {
+//             p += n;
+//         }
+//     }
+// }
 
-int PORT_param(char *src)
-{
-    int p = 0;
-    int comma_count = 0;
-    while (src[p] != '\0')
-    {
-        if (src[p] == ',')
-        {
-            comma_count++;
-            if (comma_count == 4)
-            {
-                break;
-            }
-            src[p] = '.';
-        }
-        p++;
-    }
-    //strncpy(dest, src, p);
-    src[p] = '\0';
-    p++;
-    int fst_hlf = 0;
-    int scd_hlf = 0;
-    while (src[p] != '\0')
-    {
-        if (src[p] == ',')
-        {
-            break;
-        }
-        else if ('0' > src[p] || '9' < src[p])
-        {
-            return -1;
-        }
-        else
-        {
-            fst_hlf *= 10;
-            fst_hlf += src[p] - '0';
-        }
-        p++;
-    }
-    p++;
-    while (src[p] != '\0')
-    {
-        if ('0' > src[p] || '9' < src[p])
-        {
-            return -1;
-        }
-        else
-        {
-            scd_hlf *= 10;
-            scd_hlf += src[p] - '0';
-        }
-        p++;
-    }
-    return (fst_hlf << 8) + scd_hlf;
-}
+// int PORT_param(char *src)
+// {
+//     int p = 0;
+//     int comma_count = 0;
+//     while (src[p] != '\0')
+//     {
+//         if (src[p] == ',')
+//         {
+//             comma_count++;
+//             if (comma_count == 4)
+//             {
+//                 break;
+//             }
+//             src[p] = '.';
+//         }
+//         p++;
+//     }
+//     //strncpy(dest, src, p);
+//     src[p] = '\0';
+//     p++;
+//     int fst_hlf = 0;
+//     int scd_hlf = 0;
+//     while (src[p] != '\0')
+//     {
+//         if (src[p] == ',')
+//         {
+//             break;
+//         }
+//         else if ('0' > src[p] || '9' < src[p])
+//         {
+//             return -1;
+//         }
+//         else
+//         {
+//             fst_hlf *= 10;
+//             fst_hlf += src[p] - '0';
+//         }
+//         p++;
+//     }
+//     p++;
+//     while (src[p] != '\0')
+//     {
+//         if ('0' > src[p] || '9' < src[p])
+//         {
+//             return -1;
+//         }
+//         else
+//         {
+//             scd_hlf *= 10;
+//             scd_hlf += src[p] - '0';
+//         }
+//         p++;
+//     }
+//     return (fst_hlf << 8) + scd_hlf;
+// }
 
 int strip_crlf(char *sentence, int len)
 {
@@ -187,4 +188,52 @@ void send_resp(int fd, int code, char *custom_resp)
     int len = strlen(resp);
     send(fd, resp, len, MSG_WAITALL);
     return;
+}
+
+int safe_send(int fd, char *buf, int len)
+{
+    int p = 0;
+    int n;
+    while (p < len)
+    {
+        n = write(fd, buf + p, len - p);
+        if (n < 0)
+        {
+            printf("Error write(): %s(%d)\n", strerror(errno), errno);
+            return 0;
+        }
+        else if (n == 0)
+        {
+            break;
+        }
+        else
+        {
+            p += n;
+        }
+    }
+    return 1;
+}
+
+int safe_recv(int fd, char *buf, int len)
+{
+    int p = 0;
+    int n;
+    while (1)
+    {
+        n = read(fd, buf + p, len - p);
+        if (n < 0)
+        {
+            printf("Error read(): %s(%d)\n", strerror(errno), errno); //read����֤һ�ζ��꣬������;�˳�
+            return p;
+        }
+        else if (n == 0)
+        {
+            break;
+        }
+        else
+        {
+            p += n;
+        }
+    }
+    return p;
 }

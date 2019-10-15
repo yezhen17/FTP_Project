@@ -1,14 +1,14 @@
 #include "cmds.h"
+#include "global.h"
+#include "rw_utils.h"
+#include "fd_manager.h"
+#include "dir_utils.h"
 
-//extern char server_ip[20];
-//extern int server_port;
 #define MAX_CLIENTS FD_SETSIZE / 2
 struct client_info clients[MAX_CLIENTS];
 
 int cmd_router(char *cmd, char *param, int idx)
 {
-    //strcpy(server_ip, "166.111.82.233");
-    //server_port = 6789;
     int code;
     int fd = clients[idx].connect_fd;
     int state = clients[idx].state;
@@ -96,6 +96,10 @@ int cmd_router(char *cmd, char *param, int idx)
     {
         code = cmd_list(param, idx);
     }
+    else if (strcmp(cmd, "REST") == 0)
+    {
+        code = cmd_rest(param, idx);
+    }
     return code;
 }
 
@@ -104,6 +108,11 @@ int cmd_user(char *param, int idx)
     printf("%s\n", param);
     int fd = clients[idx].connect_fd;
     int state = clients[idx].state;
+    if (param == NULL)
+    {
+        send_resp(fd, 501, NULL);
+        return 501;
+    }
     if (state != NOT_LOGGED_IN)
     {
         send_resp(fd, 530, NULL);
@@ -296,7 +305,7 @@ int prepare_transfer(char *param, int idx) {
     {
         //strcpy(response, "testing.\r\n");
         //send_response(response, tmpfd);
-        clients[idx].mode = PORT_MODE;
+        clients[idx].mode = TRANSFER_READY;
         
         int trans_fd = clients[idx].transfer_fd;
         struct sockaddr_in addr = clients[idx].addr;
@@ -334,6 +343,31 @@ int cmd_stor(char *param, int idx)
 {
     prepare_transfer(param, idx);
     clients[idx].rw = WRITE;
+}
+
+int cmd_rest(char *param, int idx)
+{
+    int fd = clients[idx].connect_fd;
+    if (param == NULL)
+    {
+        send_resp(fd, 501, NULL);
+        return 501;
+    }
+    int start_pos = -1;
+    if(sscanf(param, "%d", &start_pos) == 1 && start_pos >= 0)
+    {
+        send_resp(fd, 350, "REST set");
+        return 350;
+    }
+    else
+    {
+        send_resp(fd, 501, NULL);
+        return 501;
+    }
+    
+    clients[idx].start_pos = start_pos;
+    send_resp(clients[idx].connect_fd, 350, NULL);
+
 }
 
 int cmd_mkd(char *param, int idx)

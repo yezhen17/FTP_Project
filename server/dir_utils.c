@@ -1,21 +1,15 @@
-#include "utils.h"
+#include "dir_utils.h"
 #include "cmds.h"
-#include <dirent.h>
-int check_port_used(int port)
-{
-    int used = 0;
-    int tmpfd = socket(AF_INET, SOCK_STREAM, 0);
-    struct sockaddr_in addr;
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    inet_pton(AF_INET, "0.0.0.0", &addr.sin_addr);
-    if (bind(tmpfd, (struct sockaddr *)(&addr), sizeof(addr)) < 0)
-    {
-        used = 1;
-    }
-    close(tmpfd);
-    return used;
-}
+#include "global.h"
+
+
+extern struct client_info clients[MAX_CLIENTS];
+extern int max_i, max_fd;
+extern fd_set allset;
+
+
+
+
 
 void gen_absdir(char *prefix, char *dir, char *dest)
 {
@@ -134,7 +128,7 @@ int reply_list(int idx, char *dest) {
                 break;
             else
                 list_res[read_size] = '\0';
-            send(trans_fd, list_res, strlen(list_res), MSG_WAITALL);
+            safe_send(trans_fd, list_res, strlen(list_res));
         }
         pclose(fp);
     }
