@@ -5,11 +5,14 @@
 #include <sys/select.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 
 #include <unistd.h>
 #include <errno.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <net/if.h>
+#include <linux/if.h>
 
 #include <ctype.h>
 #include <string.h>
@@ -20,6 +23,9 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <dirent.h>
+
+
+
 
 #define NOT_LOGGED_IN 0
 #define LOGGING_IN 1
@@ -52,6 +58,7 @@ struct client_info
 
 int listen_port;
 char root_folder[256];
+char local_ip[20];
 int max_i, max_fd;
 fd_set allset;
 struct client_info clients[MAX_CLIENTS];

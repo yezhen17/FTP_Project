@@ -13,4 +13,6 @@ int start_connecting(int sockfd, struct sockaddr_in addrs);
 
 int IsSocketClosed(int fd);
 
+int get_local_ip(char *ipbuf);
+
 #endif

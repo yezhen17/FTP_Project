@@ -176,7 +176,7 @@ void send_resp(int fd, int code, char *custom_resp)
         sprintf(resp, "%d %s\r\n", code, "network failure, try again?");
         break;
     case 451:
-        sprintf(resp, "%d %s\r\n", code, "read the file failed.");
+        sprintf(resp, "%d %s\r\n", code, "Failed to read file.");
         break;
     case 150:
         sprintf(resp, "%d %s\r\n", code, "Opening connection.");
@@ -224,7 +224,7 @@ int safe_recv(int fd, char *buf, int len)
         if (n < 0)
         {
             printf("Error read(): %s(%d)\n", strerror(errno), errno); //read����֤һ�ζ��꣬������;�˳�
-            return p;
+            return 0;
         }
         else if (n == 0)
         {

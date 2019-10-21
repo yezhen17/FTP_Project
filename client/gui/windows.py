@@ -10,13 +10,20 @@ class FuncWindow(QMainWindow, Ui_func):
         super(FuncWindow, self).__init__(parent)
         self.setupUi(self)
         self.pasvBtn.setChecked(True)
-        self.dir_btn.clicked.connect(self.chooseDir)
+        #self.renameBtn.clicked.connect(self.chooseDir)
         self.cwd = os.getcwd()
         self.local_dir = None
+        self.renameBtn.setToolTip('Download a file from the server.')
+
+        #self.setWindowFlags(QtCore.Qt.WindowMinimizeButtonHint)
+        self.setFixedSize(self.width(), self.height())
+
     close_signal = QtCore.pyqtSignal(str)
 
     def closeEvent(self, event):
         self.close_signal.emit('close')
+
+
 
     def chooseDir(self):
         dir_choose = QFileDialog.getExistingDirectory(self,
@@ -44,7 +51,10 @@ class HomeWindow(QMainWindow, Ui_home):
     def __init__(self, parent=None):
         super(HomeWindow, self).__init__(parent)
         self.setupUi(self)
-        self.lineEdit.returnPressed.connect(self.login)
+        #self.lineEdit.returnPressed.connect(self.login)
+        #self.pushButton.clicked.connect(self.login)
+        self.lineEdit.setFocus()
+        self.setFixedSize(self.width(), self.height())
         #self.myButton.clicked.connect(self.myPrint)
     def login(self):
         self.close()
