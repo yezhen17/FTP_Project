@@ -10,30 +10,16 @@ class FuncWindow(QMainWindow, Ui_func):
         super(FuncWindow, self).__init__(parent)
         self.setupUi(self)
         self.pasvBtn.setChecked(True)
-        #self.renameBtn.clicked.connect(self.chooseDir)
         self.cwd = os.getcwd()
         self.local_dir = None
         self.renameBtn.setToolTip('Download a file from the server.')
-
-        #self.setWindowFlags(QtCore.Qt.WindowMinimizeButtonHint)
-        self.setFixedSize(self.width(), self.height())
+        self.setFixedSize(self.width(), self.height()) # fix the window size
 
     close_signal = QtCore.pyqtSignal(str)
 
     def closeEvent(self, event):
         self.close_signal.emit('close')
 
-
-
-    def chooseDir(self):
-        dir_choose = QFileDialog.getExistingDirectory(self,
-                                                      "选取文件夹",
-                                                      self.cwd)  # 起始路径
-
-        if dir_choose == "":
-            return
-
-        self.local_dir = dir_choose
 
 
 class ResultWindow(QMainWindow, Ui_Result):
@@ -51,10 +37,8 @@ class HomeWindow(QMainWindow, Ui_home):
     def __init__(self, parent=None):
         super(HomeWindow, self).__init__(parent)
         self.setupUi(self)
-        #self.lineEdit.returnPressed.connect(self.login)
-        #self.pushButton.clicked.connect(self.login)
         self.lineEdit.setFocus()
         self.setFixedSize(self.width(), self.height())
-        #self.myButton.clicked.connect(self.myPrint)
+
     def login(self):
         self.close()

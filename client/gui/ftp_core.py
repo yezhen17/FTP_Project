@@ -4,7 +4,8 @@ import os
 import random
 import struct
 import time
-from transfer import downloadThread, uploadThread
+from PyQt5.QtWidgets import QMessageBox
+from transfer import DownloadThread, UploadThread
 
 
 '''
@@ -61,8 +62,8 @@ class Client():
         self.prefix = None
         self.root = None
         self.respBox = None
-        self.uploadthd = None
-        self.downloadthd = None
+        self.upload_thread = None
+        self.download_thread = None
 
     '''
     processes command
@@ -79,6 +80,7 @@ class Client():
         last_line = resp.split('\r\n')[-2]
         self.code = int(last_line.split(' ')[0])
         self.resp += resp
+        return last_line
 
     '''
     connects and ftp server
@@ -100,6 +102,7 @@ class Client():
 
     '''
     anonymous user login
+    param: passwd(str)
     '''
     @after_func
     def login(self, passwd):
@@ -141,225 +144,265 @@ class Client():
         self.send_cmd('SYST')
         self.recv_resp()
 
+    '''
+    QUIT command
+    '''
+    @after_func
     def quit_cmd(self):
         self.send_cmd('QUIT')
         self.recv_resp()
         self.s.close()
 
+    '''
+    ABOR command
+    '''
     def abor_cmd(self):
         #self.send_cmd('ABOR')
         self.data_s.close()
 
-
-
-    @after_func
-    def download_file(self, src_path, dest_path, bar, size):
+    '''
+    download file, first send TYPE I, then send PORT or PASV, 
+    then send REST (or not), finally send RETR
+    param: src_path(str), dest_path(str), bar(ProgressBar), size(int)
+    '''
+    def download_file(self, src_path, dest_path, bar, filesize):
+        self.type_cmd()
         if self.isPasv:
             self.pasv_cmd()
         else:
             self.port_cmd()
 
-        self.retr_cmd(src_path, dest_path, bar, size)
+        print(src_path)
+        dir = os.path.join(dest_path, os.path.basename(src_path))
+        if os.path.exists(dir):
+            offset = os.path.getsize(dir)
+            self.rest_cmd(offset) # if offset is 0, don't send REST since it is useless
+        else:
+            offset = 0
+        print(offset)
 
+        self.retr_cmd(src_path, dir, bar, filesize, offset)
 
+    '''
+    upload file, first send TYPE I, then send PORT or PASV, 
+    then send REST (or not), finally send STOR
+    param: src_path(str), dest_path(str), bar(ProgressBar), size(int)
+    '''
+    def upload_file(self, src_path, dest_path, bar, filesize):
+        self.type_cmd()
+        if self.isPasv:
+            self.pasv_cmd()
+        else:
+            self.port_cmd()
+        if filesize != 0:
+            self.rest_cmd(filesize)
+        self.stor_cmd(src_path, dest_path, bar, filesize)
+
+    '''
+    REST command
+    param: offset(int)
+    '''
+    @after_func
+    def rest_cmd(self, offset):
+        self.send_cmd('REST ' + str(offset))
+        self.recv_resp()
+
+    '''
+    PASV command
+    '''
     @after_func
     def pasv_cmd(self):
         self.send_cmd('PASV')
         self.recv_resp()
+
+        # parse the response
         addr = self.resp.split('(')[-1].split(')')[0]
-        # print(self.resp)
         addr = addr.split(',')
         self.data_addr = ('.'.join(addr[:4]), int(addr[4]) * 256 + int(addr[5]))
-        print(self.data_addr)
 
+    '''
+    PORT command
+    '''
     @after_func
     def port_cmd(self):
+        # form the command
         port = get_free_port(self.this_ip)
         cmd = 'PORT ' + self.this_ip.replace('.', ',') + ',' + str(port // 256) + ',' + str(port % 256)
-        print(cmd)
         self.send_cmd(cmd)
         self.recv_resp()
-        print("sb?")
+
+        # start listening
         self.data_s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.data_s.bind((self.this_ip, port))
-        self.data_s.listen(10)
-        print("fuck")
+        self.data_s.listen(5)
 
-        print("hello",self.resp)
-
-
-    def upload_file(self, src_path, dest_path, bar, size):
-        resp = ''
-        if self.isPasv:
-            self.pasv_cmd()
-        else:
-            self.port_cmd()
-        resp += self.resp + '\r\n'
-        self.stor_cmd(src_path, dest_path, bar, size)
-        resp += self.resp
-
+    '''
+    RETR command
+    param: src_path(str), dest_path(str), bar(ProgressBar), filesize(int), offset(int)
+    '''
     @after_func
-    def retr_cmd(self, src_path, dest_path, bar, size):
-        print(src_path)
-        dir = os.path.join(dest_path, os.path.basename(src_path))
-        if os.path.exists(dir):
-            cursize = os.path.getsize(dir)
-        else:
-            cursize = 0
-        print(cursize)
-        self.send_cmd('REST ' + str(cursize))
-        self.recv_resp()
-        print(cursize)
+    def retr_cmd(self, src_path, dest_path, bar, filesize, offset):
+        # print(src_path)
+        # dir = os.path.join(dest_path, os.path.basename(src_path))
+        # if os.path.exists(dir):
+        #     cursize = os.path.getsize(dir)
+        # else:
+        #     cursize = 0
+        # print(cursize)
+
         self.send_cmd('RETR ' + src_path)
 
-        #print(code)
+        # establish data transfer connection
         if self.isPasv:
             self.data_s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
                 self.data_s.connect(self.data_addr)
-            except:
-                print("something wrong")
+            except Exception as e:
+                QMessageBox.information(None, 'Error', str(e), QMessageBox.Yes)
                 return
         else:
-            new_s, _ = self.data_s.accept()
-            self.data_s.close()
-            self.data_s = new_s
+            try:
+                new_s, _ = self.data_s.accept()
+                self.data_s.close()
+                self.data_s = new_s
+            except Exception as e:
+                QMessageBox.information(None, 'Error', str(e), QMessageBox.Yes)
+                return
+
         self.recv_resp()
-        def update_bar(sum):
-            bar.setValue(sum * 100 / size)
-        self.downloadthd = downloadThread(self, size, cursize, dir)
-        self.downloadthd.bar_signal.connect(update_bar)
-        #self.downloadThread.download_proess_signal.connect(self.set_progressbar_value)
-        self.downloadthd.start()
-        # sum = cursize
-        # try:
-        #     #if os.path.exists(dir):
-        #     #    os.remove(dir)
-        #     with open(dir, 'ab+') as f:
-        #         print(dir)
-        #         while True:
-        #             data = self.data_s.recv(8092)
-        #             # print(data)
-        #             if not data:
-        #                 break
-        #             sum += len(data)
-        #             bar.setValue(sum * 100 / size)
-        #             f.write(data)
-        # except Exception as e:
-        #     print(str(e))
+
+        def update_bar(progress):
+            bar.setValue(progress * 100 / filesize)
+
+        self.download_thread = DownloadThread(self, filesize, offset, dest_path)
+        self.download_thread.bar_signal.connect(update_bar)
+        self.download_thread.start()
 
 
+    '''
+    STOR command
+    param: src_path(str), dest_path(str), bar(ProgressBar), filesize(int), offset(int)
+    '''
     @after_func
-    def stor_cmd(self, src_path, dest_path, bar, cursize):
-
-        self.send_cmd('REST ' + str(cursize))
-        self.recv_resp()
-        print(self.resp.split('\n')[-2])
-        size = os.path.getsize(src_path)
-
+    def stor_cmd(self, src_path, dest_path, bar, offset):
+        filesize = os.path.getsize(src_path)
         self.send_cmd('STOR ' + dest_path)
 
+        # establish data transfer connection
         if self.isPasv:
             self.data_s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.data_s.connect(self.data_addr)
+            try:
+                self.data_s.connect(self.data_addr)
+            except Exception as e:
+                QMessageBox.information(None, 'Error', str(e), QMessageBox.Yes)
+                return
         else:
-            new_s, _ = self.data_s.accept()
-            self.data_s.close()
-            self.data_s = new_s
-        print(dest_path)
+            try:
+                new_s, _ = self.data_s.accept()
+                self.data_s.close()
+                self.data_s = new_s
+            except Exception as e:
+                QMessageBox.information(None, 'Error', str(e), QMessageBox.Yes)
+                return
         self.recv_resp()
-        print(self.resp.split('\n')[-2])
-        def update_bar(sum):
-            bar.setValue(sum * 100 / size)
-        self.uploadthd = uploadThread(self, size, cursize, src_path)
-        self.uploadthd.bar_signal.connect(update_bar)
-        self.uploadthd.start()
-        # with open(src_path, 'rb') as f:
-        #     sum = 0
-        #     while True:
-        #         data = f.read(8092)
-        #         #print(data)
-        #         if not data:
-        #             break
-        #         self.data_s.send(data)
-        #         sum += len(data)
-        #         bar.setValue(sum * 100 / size)
-        # self.data_s.close()
-        # print("yes")
-        # self.recv_resp()
 
+        def update_bar(progress):
+            bar.setValue(progress * 100 / filesize)
+
+        self.upload_thread = UploadThread(self, filesize, offset, src_path)
+        self.upload_thread.bar_signal.connect(update_bar)
+        self.upload_thread.start()
+
+    '''
+    MKD command
+    '''
     @after_func
     def mkd_cmd(self, dest_path):
         self.send_cmd('MKD ' + dest_path)
         self.recv_resp()
 
+    '''
+    RMD command
+    '''
     @after_func
     def rmd_cmd(self, dest_path):
         self.send_cmd('RMD ' + dest_path)
         self.recv_resp()
 
+    '''
+    RNFR command
+    '''
     @after_func
     def rnfr_cmd(self, dest_path):
         self.send_cmd('RNFR ' + dest_path)
         self.recv_resp()
 
+    '''
+    RNTO command
+    '''
     @after_func
     def rnto_cmd(self, dest_path):
         self.send_cmd('RNTO ' + dest_path)
         self.recv_resp()
 
+    '''
+    PWD command
+    '''
     @after_func
     def pwd_cmd(self):
         self.send_cmd('PWD')
-        self.recv_resp()
-        self.prefix = self.resp.split('\n')[-2].split(' ')[1].strip()[1:-1]
-        print("!!!!",self.prefix)
+        line = self.recv_resp()
+        self.prefix = line.split(' ')[1].strip()[1:-1] # strip \"
 
-
+    '''
+    CWD command
+    param: dest_path(str)
+    '''
     @after_func
     def cwd_cmd(self, dest_path):
         self.send_cmd('CWD ' + dest_path)
         self.recv_resp()
 
+    '''
+    LIST command
+    param: dest_path(str)
+    '''
     @after_func
     def list_cmd(self, dest_path):
-        print("not sent yet")
+        # although a standard client uses TYPE A for LIST commands, we can use TYPE I
         if self.isPasv:
             self.pasv_cmd()
         else:
             self.port_cmd()
-        #print(self.resp.split('\n')[-2])
-        #print("sent pasv")
+
         if dest_path is not None:
             self.send_cmd('LIST ' + dest_path)
         else:
             self.send_cmd('LIST')
+
         if self.isPasv:
             self.data_s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
                 self.data_s.connect(self.data_addr)
             except Exception as e:
-                print("hey", e)
+                QMessageBox.information(None, 'Error', str(e), QMessageBox.Yes)
                 return ''
         else:
             try:
-                print(self.data_s)
                 new_s, _ = self.data_s.accept()
-                print(new_s)
                 self.data_s.close()
                 self.data_s = new_s
             except Exception as e:
-                print(str(e))
-        print(dest_path)
-
+                QMessageBox.information(None, 'Error', str(e), QMessageBox.Yes)
+                return ''
         self.recv_resp()
-        allfile = ''
+
+        list = ''
         while True:
             data = self.data_s.recv(8192).decode()
-            allfile += data
-            #print(data)
+            list += data
             if not data:
                 break
         self.recv_resp()
         self.data_s.close()
-        return allfile
+        return list

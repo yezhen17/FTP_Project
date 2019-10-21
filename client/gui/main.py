@@ -1,19 +1,13 @@
-import sys
+##################################################################
+# entry point of the project, also contains the FTPCLient class,
+# which manages the FTP core functions and GUI logic
+##################################################################
 
-from PyQt5.QtCore import pyqtSignal
+import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTreeWidget, QTreeWidgetItem, QMessageBox, QTextBrowser
 from PyQt5 import QtGui
-
 from windows import *
-
 from ftp_core import *
-
-
-def after_func(func):
-    def wrapper(self):
-        func(self)
-        self.show_resp()
-    return wrapper
 
 
 class FTPClient():
@@ -34,21 +28,26 @@ class FTPClient():
         self.funcWin.removeBtn.clicked.connect(self.rmdir)
         self.funcWin.uploadButton.clicked.connect(self.upload_file)
         self.funcWin.renameBtn.clicked.connect(self.rename_file)
-        self.funcWin.stopButton.clicked.connect(self.close_transfer)
+        self.funcWin.pauseButton.clicked.connect(self.close_transfer)
         self.client.respBox = self.funcWin.serverResp
         self.last_src = None
         self.last_dest = None
+        self.last_size = None
+        self.last_offset = None
 
     def new_home(self):
         self.homeWin = HomeWindow()
         self.client = Client()
         self.funcWin = FuncWindow()
         self.homeWin.show()
-        self.homeWin.lineIP.setText('166.111.82.233')
+        self.homeWin.lineIP.setText('166.111.82.233') # convenient for testing
         self.homeWin.linePort.setText('9999')
         self.homeWin.lineEdit.returnPressed.connect(self.login)
         self.homeWin.pushButton.clicked.connect(self.login)
 
+    '''
+    connects FTP server and logs in successively
+    '''
     def login(self):
         login_res = self.client.new_connect(self.homeWin.lineIP.text(), int(self.homeWin.linePort.text()))
         if login_res[0]:
@@ -62,68 +61,88 @@ class FTPClient():
         else:
             QMessageBox.information(None, 'Error', login_res[1], QMessageBox.Yes)
 
+    '''
+    set PASV mode
+    '''
     def set_pasv(self):
         self.client.pasv_mode()
         self.funcWin.portBtn.setChecked(False)
 
+    '''
+    set PORT mode
+    '''
     def set_port(self):
         self.client.port_mode()
         self.funcWin.pasvBtn.setChecked(False)
 
+    '''
+    sets TYPE through menubar, though it is useless since default is already binary mode
+    '''
     def set_type(self):
         self.funcWin.actionSet_binary_mode.setText('Set binary mode √')
         self.client.type_cmd()
 
+    '''
+    checks SYST info
+    '''
     def ask_syst(self):
         self.client.syst_cmd()
 
+    '''
+    closes connection with client, closes current window, and shows a result window
+    '''
     def close_connect(self):
         self.client.quit_cmd()
         print(self.client.resp)
         self.resultWin = ResultWindow()
         self.resultWin.show()
         self.resultWin.textBrowser.setText(self.client.resp)
-        #self.resultWin.close_signal.connect(self.new_home)
 
+    '''
+    downloads file without typing directory
+    '''
     def download_file(self):
         selected_dir = self.funcWin.treeWidget.currentItem()
         if selected_dir is None or selected_dir.text(0) == '..' or selected_dir.text(1) != 'File':
-            msgBox = QMessageBox.information(None, 'Error', 'Not a file.', QMessageBox.Yes)
+            QMessageBox.information(None, 'Error', 'Not a file.', QMessageBox.Yes)
             return
-        size = int(selected_dir.text(3))
+        filesize = int(selected_dir.text(3))
         src_path = selected_dir.text(0).strip()
         chosen_dir = QFileDialog.getExistingDirectory(None, "Choose a folder.", os.getcwd())  # 起始路径
         print(src_path)
 
+        # memorizes the last download/upload operation to enable transmission resume
         self.last_dest = chosen_dir
         self.last_src = src_path
-        self.last_size = size
+        self.last_size = filesize
         self.last_offset = None
-        self.client.download_file(src_path, chosen_dir, self.funcWin.downloadBar, size)
 
+        self.client.download_file(src_path, chosen_dir, self.funcWin.downloadBar, filesize)
 
+    '''
+    uploads file without typing directory
+    '''
     def upload_file(self):
         selected_dir = self.funcWin.treeWidget.currentItem()
         dest_folder = ''
         if selected_dir is not None:
             dest_folder = selected_dir.text(0)
-
             if dest_folder == '..' or selected_dir.text(1) != 'Folder':
-                msgBox = QMessageBox.information(None, 'Error', 'Not a folder.', QMessageBox.Yes)
+                QMessageBox.information(None, 'Error', 'Not a folder.', QMessageBox.Yes)
                 return
 
-        chosen_file = QFileDialog.getOpenFileName(None, "Choose file to upload.", os.getcwd())  # 起始路径
+        chosen_file = QFileDialog.getOpenFileName(None, "Choose file to upload.", os.getcwd())
         if not chosen_file[0]:
             return
         src_path = chosen_file[0]
-        #size = os.path.getsize(src_path)
-        #print(size)
+
+        # if no folder chosen, use the parent folder
         if dest_folder:
             dest_path = dest_folder + '/' + os.path.basename(src_path)
         else:
             dest_path = os.path.basename(src_path)
-        print('hey',dest_path)
 
+        # memorizes the last download/upload operation to enable transmission resume
         self.last_dest = dest_path
         self.last_src = src_path
         self.last_size = None
@@ -138,41 +157,48 @@ class FTPClient():
         #     self.unfold()
         # self.client.uploadthd.complete_signal.connect(reshow)
 
-
+    '''
+    use list command to show directory info from the server
+    '''
     def unfold(self):
         root = self.funcWin.treeWidget
+
+        # the root folder doesn't have .. for security issues
         if self.client.prefix != self.client.root:
             ret = QTreeWidgetItem(root)
             ret.setText(0, '..')
             ret.isFile = '..'
-        allfile = self.client.list_cmd(None)
-        print(allfile)
-        if allfile == '':
+
+        flst = self.client.list_cmd(None)
+        print(flst)
+        if flst == '':
             return
-        filelist = allfile.split('\n')[:-1]
-        names =[]
-        for file in filelist:
-            newfile = []
+        flst = flst.split('\n')[:-1]
+        items = []
+        for file in flst:
+            parsed_info = []
             file = file.split(' ')
             for i in range(len(file)):
                 if file[i] != '':
-                    newfile.append(file[i])
-            print(newfile)
-            name = QTreeWidgetItem(root)  # 3
-            name.setText(0, newfile[8].strip('\r'))
-            name.setText(2, ' '.join(newfile[5:8]))
+                    parsed_info.append(file[i])
+            print(parsed_info)
+            item = QTreeWidgetItem(root)
+            item.setText(0, parsed_info[8].strip('\r'))
+            item.setText(2, ' '.join(parsed_info[5:8]))
 
-            # name.setExpanded(True)
-            if newfile[0][0] == '-':
-                name.setText(3, newfile[4])
-                name.setText(1, 'File')
-                name.isFile = 'yes'
-            elif newfile[0][0] == 'd':
-                name.setText(1, 'Folder')
-                name.isFile = 'no'
-            names.append(name)
-        return names
+            if parsed_info[0][0] == '-':
+                item.setText(3, parsed_info[4])
+                item.setText(1, 'File')
+                item.isFile = 'yes'
+            elif parsed_info[0][0] == 'd':
+                item.setText(1, 'Folder')
+                item.isFile = 'no'
+            items.append(item)
+        return items
 
+    '''
+    initializes directory list
+    '''
     def init_filelist(self, dir):
         def refresh():
             root = self.funcWin.treeWidget
@@ -180,11 +206,14 @@ class FTPClient():
             file = root.currentItem()
             path = file.text(0)
             print(file.isFile)
+
+            # change a parent directory
             if file.isFile == '..':
                 root.clear()
                 ftp.cwd_cmd(self.funcWin.treeWidget.parent)
                 ftp.pwd_cmd()
                 self.unfold()
+
             if file.isFile == 'no':
                 root.clear()
                 root.parent = ftp.prefix
@@ -194,29 +223,37 @@ class FTPClient():
 
         root = self.funcWin.treeWidget
         root.setHeaderLabels(['Filename', 'Type', 'Last modified', 'Size(Bytes)'])
-        root.doubleClicked.connect(refresh)
+        root.doubleClicked.connect(refresh) # doubleclick on folder to enter
         root.expandAll()
         root.parent = None
-        self.client.pwd_cmd()
+        self.client.pwd_cmd() # use PWD command to get prefix
         self.client.root = self.client.prefix
         self.unfold()
 
+    '''
+    creates a new folder
+    '''
     def mkdir(self):
         self.client.mkd_cmd(self.funcWin.newdirLine.text())
-        self.client.list_cmd(None)
         self.funcWin.treeWidget.clear()
         self.unfold()
 
+    '''
+    removes a folder recursively or removes a file
+    '''
     def rmdir(self):
         ftp = self.client
         root = self.funcWin.treeWidget
         selected_file = root.selectedItems()[0]
         path = selected_file.text(0)
-        ftp.rmd_cmd(path.strip('\r'))
-        ftp.list_cmd(None)
+        print(len(path))
+        ftp.rmd_cmd(path)
         root.clear()
         self.unfold()
 
+    '''
+    removes a folder recursively or removes a file
+    '''
     def rename_file(self):
         ftp = self.client
         root = self.funcWin.treeWidget
@@ -227,20 +264,20 @@ class FTPClient():
             return
         newpath = self.funcWin.renameLine.text()
         ftp.rnto_cmd(newpath)
-        ftp.list_cmd(None)
         root.clear()
         self.unfold()
 
+    '''
+    pauses a ongoing file transfer
+    '''
     def close_transfer(self):
-
         # self.abor_signal = pyqtSignal()
         # print("1")
         # self.abor_signal.connect(self.client.uploadthd.abor)
         # print("2")
         # self.abor_signal.emit()
 
-
-
+        # upload
         if self.last_size is None:
             self.client.abor_cmd()
             time.sleep(0.5)
@@ -264,21 +301,22 @@ class FTPClient():
         # self.funcWin.treeWidget.clear()
         # print("what", self.last_offset)
         # self.unfold()
-        self.funcWin.stopButton.setText("Resume")
-        self.funcWin.stopButton.clicked.disconnect(self.close_transfer)
-        self.funcWin.stopButton.clicked.connect(self.resume_transfer)
+        self.funcWin.pauseButton.setText("Resume")
+        self.funcWin.pauseButton.clicked.disconnect(self.close_transfer)
+        self.funcWin.pauseButton.clicked.connect(self.resume_transfer)
 
-
+    '''
+    switches from pause to resume
+    '''
     def resume_transfer(self):
-        self.funcWin.stopButton.setText("Stop")
+        self.funcWin.pauseButton.setText("Pause")
         if self.last_offset is None:
             self.client.download_file(self.last_src, self.last_dest, self.funcWin.downloadBar, self.last_size)
         else:
             self.client.upload_file(self.last_src, self.last_dest, self.funcWin.downloadBar, self.last_offset)
         print("resume from", self.last_offset)
-        self.funcWin.stopButton.clicked.disconnect(self.resume_transfer)
-        self.funcWin.stopButton.clicked.connect(self.close_transfer)
-
+        self.funcWin.pauseButton.clicked.disconnect(self.resume_transfer)
+        self.funcWin.pauseButton.clicked.connect(self.close_transfer)
 
 
 if __name__ == '__main__':
