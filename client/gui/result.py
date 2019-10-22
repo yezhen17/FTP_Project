@@ -14,6 +14,10 @@ class Ui_Result(object):
     def setupUi(self, Result):
         Result.setObjectName("Result")
         Result.resize(400, 300)
+        font = QtGui.QFont()
+        font.setFamily("Comic Sans MS")
+        font.setPointSize(10)
+        Result.setFont(font)
         self.verticalLayoutWidget = QtWidgets.QWidget(Result)
         self.verticalLayoutWidget.setGeometry(QtCore.QRect(9, 9, 381, 281))
         self.verticalLayoutWidget.setObjectName("verticalLayoutWidget")
@@ -32,5 +36,5 @@ class Ui_Result(object):
 
     def retranslateUi(self, Result):
         _translate = QtCore.QCoreApplication.translate
-        Result.setWindowTitle(_translate("Result", "Blablabla"))
+        Result.setWindowTitle(_translate("Result", "Goodbye"))
         self.pushButton.setText(_translate("Result", "Close Window"))

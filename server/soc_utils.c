@@ -31,14 +31,14 @@ int start_listening(int port)
     return fd;
 }
 
-int IsSocketClosed(int fd)
+int is_socket_closed(int fd)
 {
     char buff[32];
     int recvBytes = recv(fd, buff, sizeof(buff), MSG_PEEK);
 
     int sockErr = errno;
 
-    if (recvBytes > 0) //Get data
+    if (recvBytes > 0)
         return 0;
 
     if ((recvBytes == -1) && (sockErr == EWOULDBLOCK)) //No receive data
@@ -97,9 +97,9 @@ int get_local_ip(char *ipbuf)
 
     for (i = (ifc.ifc_len / sizeof(struct ifreq)); i > 0; i--)
     {
-        printf("net name: %s\n", ifr->ifr_name);
+        // printf("net name: %s\n", ifr->ifr_name);
         inet_ntop(AF_INET, &((struct sockaddr_in *)&ifr->ifr_addr)->sin_addr, ipbuf, 20);
-        printf("ip: %s \n", ipbuf);
+        // printf("ip: %s \n", ipbuf);
         ifr = ifr + 1;
     }
     return 0;

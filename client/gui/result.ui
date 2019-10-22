@@ -10,8 +10,14 @@
     <height>300</height>
    </rect>
   </property>
+  <property name="font">
+   <font>
+    <family>Comic Sans MS</family>
+    <pointsize>10</pointsize>
+   </font>
+  </property>
   <property name="windowTitle">
-   <string>Blablabla</string>
+   <string>Goodbye</string>
   </property>
   <widget class="QWidget" name="verticalLayoutWidget">
    <property name="geometry">

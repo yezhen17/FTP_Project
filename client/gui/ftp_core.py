@@ -5,8 +5,8 @@ import random
 import struct
 import time
 from PyQt5.QtWidgets import QMessageBox
+from PyQt5.QtCore import *
 from transfer import DownloadThread, UploadThread
-
 
 '''
 decorator function, used to append server response to text browser
@@ -65,22 +65,32 @@ class Client():
         self.upload_thread = None
         self.download_thread = None
 
+
     '''
     processes command
     '''
     def send_cmd(self, cmd):
         cmd += '\r\n'
-        self.s.send(cmd.encode('utf-8'))
+        try:
+            self.s.send(cmd.encode('utf-8'))
+        except:
+            self.win.close()
+            QMessageBox.information(None, 'Error', 'Server shut down.', QMessageBox.Yes)
 
     '''
     processes response
     '''
     def recv_resp(self):
-        resp = self.s.recv(1024).decode()
-        last_line = resp.split('\r\n')[-2]
-        self.code = int(last_line.split(' ')[0])
-        self.resp += resp
-        return last_line
+        try:
+            resp = self.s.recv(1024).decode()
+            last_line = resp.split('\r\n')[-2]
+            self.code = int(last_line.split(' ')[0])
+            self.resp += resp
+            return last_line
+        except:
+            self.win.close()
+            QMessageBox.information(None, 'Error', 'Server shut down.', QMessageBox.Yes)
+            return ''
 
     '''
     connects and ftp server
@@ -168,10 +178,12 @@ class Client():
     def download_file(self, src_path, dest_path, bar, filesize):
         self.type_cmd()
         if self.isPasv:
-            self.pasv_cmd()
+            net = self.pasv_cmd()
         else:
-            self.port_cmd()
-
+            net = self.port_cmd()
+        if not net:
+            QMessageBox.information(None, 'Error', 'PASV/PORT failure.', QMessageBox.Yes)
+            return
         print(src_path)
         dir = os.path.join(dest_path, os.path.basename(src_path))
         if os.path.exists(dir):
@@ -191,9 +203,12 @@ class Client():
     def upload_file(self, src_path, dest_path, bar, filesize):
         self.type_cmd()
         if self.isPasv:
-            self.pasv_cmd()
+            net = self.pasv_cmd()
         else:
-            self.port_cmd()
+            net = self.port_cmd()
+        if not net:
+            QMessageBox.information(None, 'Error', 'PASV/PORT failure.', QMessageBox.Yes)
+            return
         if filesize != 0:
             self.rest_cmd(filesize)
         self.stor_cmd(src_path, dest_path, bar, filesize)
@@ -214,11 +229,13 @@ class Client():
     def pasv_cmd(self):
         self.send_cmd('PASV')
         self.recv_resp()
-
+        if self.code != 227:
+            return False
         # parse the response
         addr = self.resp.split('(')[-1].split(')')[0]
         addr = addr.split(',')
         self.data_addr = ('.'.join(addr[:4]), int(addr[4]) * 256 + int(addr[5]))
+        return True
 
     '''
     PORT command
@@ -227,14 +244,19 @@ class Client():
     def port_cmd(self):
         # form the command
         port = get_free_port(self.this_ip)
+        #port = 20
         cmd = 'PORT ' + self.this_ip.replace('.', ',') + ',' + str(port // 256) + ',' + str(port % 256)
+        print(cmd)
         self.send_cmd(cmd)
         self.recv_resp()
+        if self.code != 200:
+            return False
 
         # start listening
         self.data_s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.data_s.bind((self.this_ip, port))
         self.data_s.listen(5)
+        return True
 
     '''
     RETR command
@@ -268,8 +290,12 @@ class Client():
             except Exception as e:
                 QMessageBox.information(None, 'Error', str(e), QMessageBox.Yes)
                 return
-
         self.recv_resp()
+        print(self.code)
+        if self.code != 150:
+            self.data_s.close()
+            return
+
 
         def update_bar(progress):
             bar.setValue(progress * 100 / filesize)
@@ -326,7 +352,7 @@ class Client():
     '''
     @after_func
     def rmd_cmd(self, dest_path):
-        self.send_cmd('RMD ' + dest_path)
+        self.send_cmd('DELE ' + dest_path)
         self.recv_resp()
 
     '''
@@ -371,10 +397,12 @@ class Client():
     def list_cmd(self, dest_path):
         # although a standard client uses TYPE A for LIST commands, we can use TYPE I
         if self.isPasv:
-            self.pasv_cmd()
+            net = self.pasv_cmd()
         else:
-            self.port_cmd()
-
+            net = self.port_cmd()
+        if not net:
+            QMessageBox.information(None, 'Error', 'PASV/PORT failure.', QMessageBox.Yes)
+            return ''
         if dest_path is not None:
             self.send_cmd('LIST ' + dest_path)
         else:

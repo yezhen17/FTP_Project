@@ -1,3 +1,7 @@
+/*
+连接信息定义的结构体，一些全局变量等等
+*/
+
 #ifndef GLOBAL_H
 #define GLOBAL_H
 
@@ -6,14 +10,12 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
-
 #include <unistd.h>
 #include <errno.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <net/if.h>
 #include <linux/if.h>
-
 #include <ctype.h>
 #include <string.h>
 #include <memory.h>
@@ -23,9 +25,6 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <dirent.h>
-
-
-
 
 #define NOT_LOGGED_IN 0
 #define LOGGING_IN 1
@@ -42,6 +41,7 @@
 #define LIST 2
 #define BUFSIZE 8192
 #define MAX_CLIENTS FD_SETSIZE / 2
+
 struct client_info
 {
     int connect_fd;  // 负责通信的连接

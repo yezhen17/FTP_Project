@@ -8,10 +8,9 @@ from PyQt5.QtCore import *
 import socket
 from ftp_core import *
 
-
 class DownloadThread(QThread):
     bar_signal = pyqtSignal(int)
-
+    complete_signal = pyqtSignal()
     def __init__(self, ftp, filesize, offset, dir):
         super(DownloadThread, self).__init__()
         self.ftp = ftp
@@ -40,19 +39,19 @@ class DownloadThread(QThread):
         print("hello")
         self.ftp.recv_resp()
         print(self.ftp.resp.split('\n')[-2])
+        self.complete_signal.emit()
         self.exit()
 
 
 class UploadThread(QThread):
     bar_signal = pyqtSignal(int)
-
+    complete_signal = pyqtSignal()
     def __init__(self, ftp, filesize, offset, dest_path):
         super(UploadThread, self).__init__()
         self.ftp = ftp
         self.filesize = filesize
         self.offset = offset
         self.dest_path = dest_path
-
 
     def run(self):
         try:
@@ -73,11 +72,6 @@ class UploadThread(QThread):
         except Exception as e:
             print(str(e))
             self.ftp.recv_resp()
+
+        self.complete_signal.emit()
         self.exit()
-
-
-
-
-
-
-
