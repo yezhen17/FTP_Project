@@ -167,15 +167,17 @@ class Client():
     ABOR command
     '''
     def abor_cmd(self):
-        #self.send_cmd('ABOR')
-        self.data_s.close()
+        self.send_cmd('ABOR')
+        self.recv_resp()
+        print(self.resp.split('\n')[-2])
+        #self.s.close()
 
     '''
     download file, first send TYPE I, then send PORT or PASV, 
     then send REST (or not), finally send RETR
     param: src_path(str), dest_path(str), bar(ProgressBar), size(int)
     '''
-    def download_file(self, src_path, dest_path, bar, filesize):
+    def download_file(self, src_path, dest_path, bar, filesize, offset):
         self.type_cmd()
         if self.isPasv:
             net = self.pasv_cmd()
@@ -186,11 +188,8 @@ class Client():
             return
         print(src_path)
         dir = os.path.join(dest_path, os.path.basename(src_path))
-        if os.path.exists(dir):
-            offset = os.path.getsize(dir)
+        if offset != 0:
             self.rest_cmd(offset) # if offset is 0, don't send REST since it is useless
-        else:
-            offset = 0
         print(offset)
 
         self.retr_cmd(src_path, dir, bar, filesize, offset)
@@ -264,14 +263,6 @@ class Client():
     '''
     @after_func
     def retr_cmd(self, src_path, dest_path, bar, filesize, offset):
-        # print(src_path)
-        # dir = os.path.join(dest_path, os.path.basename(src_path))
-        # if os.path.exists(dir):
-        #     cursize = os.path.getsize(dir)
-        # else:
-        #     cursize = 0
-        # print(cursize)
-
         self.send_cmd('RETR ' + src_path)
 
         # establish data transfer connection
@@ -303,7 +294,6 @@ class Client():
         self.download_thread = DownloadThread(self, filesize, offset, dest_path)
         self.download_thread.bar_signal.connect(update_bar)
         self.download_thread.start()
-
 
     '''
     STOR command
@@ -341,6 +331,7 @@ class Client():
 
     '''
     MKD command
+    param: dest_path(str)
     '''
     @after_func
     def mkd_cmd(self, dest_path):
@@ -349,14 +340,25 @@ class Client():
 
     '''
     RMD command
+    param: dest_path(str)
     '''
     @after_func
     def rmd_cmd(self, dest_path):
+        self.send_cmd('RMD ' + dest_path)
+        self.recv_resp()
+
+    '''
+    DELE command
+    param: dest_path(str)
+    '''
+    @after_func
+    def dele_cmd(self, dest_path):
         self.send_cmd('DELE ' + dest_path)
         self.recv_resp()
 
     '''
     RNFR command
+    param: dest_path(str)
     '''
     @after_func
     def rnfr_cmd(self, dest_path):
@@ -365,6 +367,7 @@ class Client():
 
     '''
     RNTO command
+    param: dest_path(str)
     '''
     @after_func
     def rnto_cmd(self, dest_path):

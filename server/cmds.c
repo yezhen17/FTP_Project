@@ -16,11 +16,13 @@ void cmd_router(char *cmd, char *param, int idx)
     if (strcmp(cmd, "ABOR") == 0)
     {
         cmd_abor(param, idx);
+        return;
     }
-    // 文件传输时无视一切命令
+    // ignore all cmds except ABOR when transfering file
     if (state == FILE_TRANSFERING)
     {
         send_resp(fd, 530, NULL);
+        return;
     }
 
     if (strcmp(cmd, "USER") == 0)
@@ -32,7 +34,7 @@ void cmd_router(char *cmd, char *param, int idx)
         cmd_pass(param, idx);
     }
 
-    // 未登录状态无视除了USER PASS 以外的命令
+    // ignore any cmds other than USER PASS if not logged in
     else if (state == NOT_LOGGED_IN || state == LOGGING_IN)
     {
         send_resp(fd, 530, NULL);
@@ -198,9 +200,11 @@ void cmd_abor(char *param, int idx)
         send_resp(fd, 504, NULL);
         return;
     }
-    
-    close_trans_fd(idx);
-    //send_resp(fd, 426, "abort");
+    if (clients[idx].transfer_fd != -1)
+    {
+        close_trans_fd(idx);
+        send_resp(fd, 426, NULL);
+    }
     send_resp(fd, 226, NULL);
 }
 
@@ -213,7 +217,7 @@ void cmd_pasv(char *param, int idx)
         send_resp(fd, 504, NULL);
         return;
     }
-    // has a connection
+    // already exists a transfer connection
     if (trans_fd != -1)
     {
         close_trans_fd(idx);
@@ -270,7 +274,7 @@ void cmd_port(char *param, int idx)
         return;
     }
 
-    // 已有文件传输连接
+    // already exists a transfer connection
     if (trans_fd != -1)
     {
         close_trans_fd(idx);
@@ -280,23 +284,22 @@ void cmd_port(char *param, int idx)
 
     sprintf(ipaddr, "%d.%d.%d.%d", h1, h2, h3, h4);
     clients[idx].mode = READY_TO_CONNECT;
-    //设置客户端发送的IP
+
+    // set the ip and port
     memset(&(clients[idx].addr), 0, sizeof(clients[idx].addr));
     clients[idx].addr.sin_family = AF_INET;
     clients[idx].addr.sin_port = htons((p1 << 8) + p2);
 
-    //转换ip地址:点分十进制-->二进制
     if (inet_pton(AF_INET, ipaddr, &(clients[idx].addr.sin_addr)) <= 0)
     {
-        printf("Error inet_pton(): %s(%d)\n", strerror(errno), errno);
+        //printf("Error inet_pton(): %s(%d)\n", strerror(errno), errno);
         send_resp(fd, 501, NULL);
         return;
     }
 
-    //创建socket
     if ((trans_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
     {
-        printf("Error socket(): %s(%d)\n", strerror(errno), errno);
+        //printf("Error socket(): %s(%d)\n", strerror(errno), errno);
         send_resp(fd, 500, NULL);
         return;
     }
@@ -322,7 +325,7 @@ void prepare_transfer(char *param, int idx) {
         struct sockaddr_in addr = clients[idx].addr;
         if (connect(trans_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
         {
-            printf("Error connect(): %s(%d)\n", strerror(errno), errno);
+            //printf("Error connect(): %s(%d)\n", strerror(errno), errno);
             close(trans_fd);
             send_resp(fd, 425, NULL);
             return;
@@ -518,7 +521,7 @@ void cmd_rmd(char *param, int idx)
         send_resp(fd, 530, NULL);
         return;
     }
-    char dest[200];
+    char dest[256];
     gen_absdir(clients[idx].prefix, param, dest);
     if (rm_emptydir(dest) == 0)
     {
@@ -545,7 +548,7 @@ void cmd_dele(char *param, int idx)
         send_resp(fd, 530, NULL);
         return;
     }
-    char dest[200];
+    char dest[256];
     gen_absdir(clients[idx].prefix, param, dest);
     if (recursive_rmdir(dest) == 0)
     {
@@ -590,7 +593,7 @@ void cmd_rnto(char *param, int idx)
 {
     int fd = clients[idx].connect_fd;
     int state = clients[idx].state;
-    clients[idx].state = LOGGED_IN; // 无论成功与否都结束RENAME？
+    clients[idx].state = LOGGED_IN;
     if (state != WAITING_RNTO) 
     {
         send_resp(fd, 503, "Previous command is not RNFR.");
@@ -608,14 +611,14 @@ void cmd_rnto(char *param, int idx)
         send_resp(fd, 530, NULL);
         return;
     }
-    char dest[200];
+    char dest[256];
     gen_absdir(clients[idx].prefix, param, dest);
 
     char shell_cmd[512];
     sprintf(shell_cmd, "mv \"%s\" \"%s\"", clients[idx].rename_file, dest);
     if (system(shell_cmd) == -1)
     {
-        printf("Error running shell: %s(%d)\n", strerror(errno), errno);
+        //printf("Error running shell: %s(%d)\n", strerror(errno), errno);
         send_resp(fd, 550, NULL);
     }
     else

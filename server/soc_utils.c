@@ -7,7 +7,7 @@ int start_listening(int port)
     struct sockaddr_in addr;
     if ((fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
     {
-        printf("Error socket(): %s(%d)\n", strerror(errno), errno);
+        //printf("Error socket(): %s(%d)\n", strerror(errno), errno);
         return -1;
     }
 
@@ -18,13 +18,13 @@ int start_listening(int port)
 
     if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) == -1)
     {
-        printf("Error bind(): %s(%d)\n", strerror(errno), errno);
+        //printf("Error bind(): %s(%d)\n", strerror(errno), errno);
         return -1;
     }
 
     if (listen(fd, 10) == -1)
     {
-        printf("Error listen(): %s(%d)\n", strerror(errno), errno);
+        //printf("Error listen(): %s(%d)\n", strerror(errno), errno);
         return -1;
     }
 
@@ -53,7 +53,7 @@ int start_connecting(int sockfd, struct sockaddr_in addrs)
 
     if (connect(sockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
     {
-        printf("Error connect(): %s(%d)\n", strerror(errno), errno);
+        //printf("Error connect(): %s(%d)\n", strerror(errno), errno);
         close(sockfd);
         return -1;
     }
@@ -89,7 +89,7 @@ int get_local_ip(char *ipbuf)
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
     {
-        printf("socket error\n");
+        //printf("socket error\n");
         return -1;
     }
     ioctl(sockfd, SIOCGIFCONF, &ifc);

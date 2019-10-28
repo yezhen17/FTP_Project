@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog
+from PyQt5.QtWidgets import QMainWindow
 from func import *
 from result import *
 from test import *
@@ -6,6 +6,8 @@ import os
 
 
 class FuncWindow(QMainWindow, Ui_func):
+    close_signal = QtCore.pyqtSignal(str)
+
     def __init__(self, parent=None):
         super(FuncWindow, self).__init__(parent)
         self.setupUi(self)
@@ -15,19 +17,21 @@ class FuncWindow(QMainWindow, Ui_func):
         self.renameBtn.setToolTip('Download a file from the server.')
         self.setFixedSize(self.width(), self.height()) # fix the window size
 
-    close_signal = QtCore.pyqtSignal(str)
-
     def closeEvent(self, event):
         self.close_signal.emit('close')
 
 
-
 class ResultWindow(QMainWindow, Ui_Result):
+    close_signal = QtCore.pyqtSignal(str)
+
     def __init__(self, parent=None):
         super(ResultWindow, self).__init__(parent)
         self.setupUi(self)
 
-    close_signal = QtCore.pyqtSignal(str)
+        def closeself():
+            self.close()
+        self.pushButton.clicked.connect(closeself)
+
 
     def closeEvent(self, event):
         self.close_signal.emit('close')

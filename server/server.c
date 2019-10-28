@@ -7,7 +7,7 @@
 #include "rw_utils.h"
 
 extern int listen_port;
-char check_s;
+
 extern char root_folder[256];
 extern char local_ip[20];
 
@@ -18,12 +18,13 @@ int main(int argc, char **argv) {
     int nready;
     
     // default values for port and root directory
-    strcpy(root_folder, "/home/cyz/tmp");
-    listen_port = 9999;
+    strcpy(root_folder, "/tmp");
+    listen_port = 21;
     
     int opt;
-    const struct option arg_options[] = {
-
+    char check_c;
+    const struct option arg_options[] = 
+    {
         {"port", required_argument, NULL, 'p'},
 
         {"root", required_argument, NULL, 'r'},
@@ -38,27 +39,31 @@ int main(int argc, char **argv) {
         case 'r':
             if (access(optarg, 0) == -1)
             {
-                printf("Directory doesn't exist: %s.\n", optarg);
+                //printf("Directory doesn't exist: %s.\n", optarg);
                 return 0;
             }
             strcpy(root_folder, optarg);
             break;
         case 'p':
-            if (sscanf(optarg, "%d%c", &listen_port, &check_s) != 1)
+            if (sscanf(optarg, "%d%c", &listen_port, &check_c) != 1)
             {
-                printf("Port number invalid: %s.\n", optarg);
+                //printf("Port number invalid: %s.\n", optarg);
+                return 0;
+            }
+            if (listen_port < 1 || listen_port > 65535)
+            {
                 return 0;
             }
             break;
         case '?':
-            printf("Wrong argument.\n");
+            //printf("Wrong argument.\n");
             return 0;
         }
     }
-
+    // printf("%d%s\n", listen_port, root_folder);
     if (get_local_ip(local_ip) == -1)
     {
-        printf("Error getting local ip!");
+        //printf("Error getting local ip!");
         return 0;
     }
 
@@ -87,7 +92,7 @@ int main(int argc, char **argv) {
             }
             else 
             {
-                printf("Error select(): %s(%d)\n", strerror(errno), errno);
+                //printf("Error select(): %s(%d)\n", strerror(errno), errno);
                 break;
             }
         }
@@ -97,7 +102,7 @@ int main(int argc, char **argv) {
             int connect_fd = accept(listen_fd, NULL, NULL);
             if (connect_fd == -1)
             {
-                printf("Error accept(): %s(%d)\n", strerror(errno), errno);
+                //printf("Error accept(): %s(%d)\n", strerror(errno), errno);
             }
             else if (!manage_conn_fds(connect_fd))
             {
@@ -142,7 +147,7 @@ int main(int argc, char **argv) {
                     int transfd = accept(tmp_fd, NULL, NULL);
                     if (transfd == -1)
                     {
-                        printf("Error accept(): %s(%d)\n", strerror(errno), errno);
+                        //printf("Error accept(): %s(%d)\n", strerror(errno), errno);
                         send_resp(clients[i].connect_fd, 425, NULL);
                         close_trans_fd(i);
                         continue;
@@ -160,6 +165,18 @@ int main(int argc, char **argv) {
                     if (clients[i].rw == WRITE)
                     {
                         upload_file(i);
+                    }
+                    if (clients[i].rw == READ)
+                    {
+                        char sentence[8];
+                        int len = recv(tmp_fd, sentence, 8, 0);
+                        // empty string means connection loss
+                        if (len <= 0)
+                        {
+                            close_trans_fd(i);
+                            send_resp(clients[i].connect_fd, 426, NULL);
+                            continue;
+                        }
                     }
                 }
                 if (--nready <= 0)
@@ -216,7 +233,7 @@ int serve_client(int fd, int idx)
     int word_count = sscanf(sentence, "%s %c", cmd, &param_check);;
     if (word_count <= 0)
     {
-        printf("Empty command.\n");
+        //printf("Empty command.\n");
         send_resp(fd, 500, NULL);
     }
 
@@ -248,7 +265,7 @@ void download_file(int idx)
     char *filename = clients[idx].filename;
     if ((f = fopen(filename, "rb")) == NULL)
     {
-        printf("Error fopen(): %s(%d)\n", strerror(errno), errno);
+        //printf("Error fopen(): %s(%d)\n", strerror(errno), errno);
         code = 451;
     }
     else
@@ -296,16 +313,16 @@ void upload_file(int idx)
     }
     if (f == NULL)
     {
-        printf("Error fopen(): %s(%d)\n", strerror(errno), errno);
+        //printf("Error fopen(): %s(%d)\n", strerror(errno), errno);
         code = 550;
     }
     else
     {
-        if ((nbytes = safe_recv(clients[idx].transfer_fd, buffer, BUFSIZE)) > 0) //���ļ����ݶ���buffer��
+        if ((nbytes = safe_recv(clients[idx].transfer_fd, buffer, BUFSIZE)) > 0)
         {
             if (fwrite(buffer, 1, nbytes, f) < nbytes)
             {
-                printf("Error fwrite(): %s(%d)\n", strerror(errno), errno);
+                //printf("Error fwrite(): %s(%d)\n", strerror(errno), errno);
                 fflush(f);
                 code = 451;
             }

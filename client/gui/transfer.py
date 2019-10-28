@@ -8,37 +8,38 @@ from PyQt5.QtCore import *
 import socket
 from ftp_core import *
 
+
 class DownloadThread(QThread):
     bar_signal = pyqtSignal(int)
     complete_signal = pyqtSignal()
+
     def __init__(self, ftp, filesize, offset, dir):
         super(DownloadThread, self).__init__()
         self.ftp = ftp
         self.filesize = filesize
         self.offset = offset
         self.dir = dir
-        print("here",filesize)
+        print("here",offset)
 
     def run(self):
-        progress = self.offset
+        if self.offset == 0:
+            open_mode = 'wb'
+        else:
+            open_mode = 'ab'
         try:
-            with open(self.dir, 'ab') as f:
+            with open(self.dir, open_mode) as f:
                 print("dir",self.dir)
                 while True:
                     data = self.ftp.data_s.recv(8192)
                     if not data:
                         break
-                    progress += len(data)
+                    self.offset += len(data)
                     time.sleep(0.001) # control the speed to avoid jamming
-                    self.bar_signal.emit(progress)
+                    self.bar_signal.emit(self.offset)
                     f.write(data)
         except Exception as e:
-            print(str(e))
-            #self.exit()
-        #self.ftp.data_s.close()
-        print("hello")
+            pass
         self.ftp.recv_resp()
-        print(self.ftp.resp.split('\n')[-2])
         self.complete_signal.emit()
         self.exit()
 
@@ -46,6 +47,7 @@ class DownloadThread(QThread):
 class UploadThread(QThread):
     bar_signal = pyqtSignal(int)
     complete_signal = pyqtSignal()
+
     def __init__(self, ftp, filesize, offset, dest_path):
         super(UploadThread, self).__init__()
         self.ftp = ftp
@@ -70,7 +72,6 @@ class UploadThread(QThread):
             self.ftp.data_s.close()
             self.ftp.recv_resp()
         except Exception as e:
-            print(str(e))
             self.ftp.recv_resp()
 
         self.complete_signal.emit()

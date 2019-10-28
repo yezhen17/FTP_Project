@@ -76,7 +76,7 @@ int rm_emptydir(char *pth)
 
 // if success return 0, else -1
 int recursive_rmdir(char *pth) {
-    char child_dir[256];
+    char child_dir[512]; // prevent warning
     DIR *dir_p;
     struct dirent *dp;
     struct stat dir_stat;

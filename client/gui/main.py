@@ -4,7 +4,7 @@
 ##################################################################
 
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QTreeWidget, QTreeWidgetItem, QMessageBox, QTextBrowser
+from PyQt5.QtWidgets import QApplication, QMainWindow, QTreeWidget, QTreeWidgetItem, QMessageBox, QTextBrowser, QFileDialog
 from PyQt5 import QtGui
 from windows import *
 from ftp_core import *
@@ -15,8 +15,6 @@ class FTPClient():
         super(FTPClient, self).__init__()
         self.homeWin = None
         self.resultWin = None
-        #self.funcWin = FuncWindow()
-        #self.client = Client()
         self.new_home()
         self.funcWin.pasvBtn.clicked.connect(self.set_pasv)
         self.funcWin.portBtn.clicked.connect(self.set_port)
@@ -28,15 +26,20 @@ class FTPClient():
         self.funcWin.removeBtn.clicked.connect(self.rmdir)
         self.funcWin.uploadButton.clicked.connect(self.upload_file)
         self.funcWin.renameBtn.clicked.connect(self.rename_file)
-        self.funcWin.pauseButton.clicked.connect(self.close_transfer)
+        self.funcWin.downloadPause.clicked.connect(self.close_download_transfer)
+        self.funcWin.uploadPause.clicked.connect(self.close_upload_transfer)
         self.client.respBox = self.funcWin.serverResp
         self.client.win = self.funcWin
         self.last_src = None
         self.last_dest = None
         self.last_size = None
         self.last_offset = None
-        self.isTransfering = False
+        self.uploading = False
+        self.downloading = False
 
+    '''
+    initializes homewindow
+    '''
     def new_home(self):
         self.homeWin = HomeWindow()
         self.client = Client()
@@ -81,7 +84,7 @@ class FTPClient():
     sets TYPE through menubar, though it is useless since default is already binary mode
     '''
     def set_type(self):
-        if self.isTransfering:
+        if self.downloading or self.uploading:
             QMessageBox.information(None, 'Error', 'File transfering!', QMessageBox.Yes)
             return
         self.funcWin.actionSet_binary_mode.setText('Set binary mode √')
@@ -91,7 +94,7 @@ class FTPClient():
     checks SYST info
     '''
     def ask_syst(self):
-        if self.isTransfering:
+        if self.downloading or self.uploading:
             QMessageBox.information(None, 'Error', 'File transfering!', QMessageBox.Yes)
             return
         self.client.syst_cmd()
@@ -105,18 +108,19 @@ class FTPClient():
         self.resultWin = ResultWindow()
         self.resultWin.show()
         self.resultWin.textBrowser.setText(self.client.resp)
+        self.resultWin.textBrowser.moveCursor(self.resultWin.textBrowser.textCursor().End)
 
     '''
     downloads file without typing directory
     '''
     def download_file(self):
-        if self.isTransfering:
+        if self.downloading or self.uploading:
             QMessageBox.information(None, 'Error', 'File transfering!', QMessageBox.Yes)
             return
-        if self.funcWin.pauseButton.text() == 'Resume':
-            self.funcWin.pauseButton.setText('Pause')
-            self.funcWin.pauseButton.clicked.disconnect(self.resume_transfer)
-            self.funcWin.pauseButton.clicked.connect(self.close_transfer)
+        if self.funcWin.downloadPause.text() == 'Resume':
+            self.funcWin.downloadPause.setText('Pause')
+            self.funcWin.downloadPause.clicked.disconnect(self.resume_download_transfer)
+            self.funcWin.downloadPause.clicked.connect(self.close_download_transfer)
         selected_dir = self.funcWin.treeWidget.currentItem()
         if selected_dir is None or selected_dir.text(0) == '..' or selected_dir.text(1) != 'File':
             QMessageBox.information(None, 'Error', 'Not a file.', QMessageBox.Yes)
@@ -129,6 +133,16 @@ class FTPClient():
             src_path = self.client.prefix + '/' + src_path
         dest_path = QFileDialog.getExistingDirectory(None, "Choose a folder.", os.getcwd())
         print(src_path)
+        dir = os.path.join(dest_path, os.path.basename(src_path))
+        if os.path.exists(dir):
+            do_replace = QMessageBox.information(None, 'Wait', 'Would you like to replace this file?',
+                                    QMessageBox.Yes | QMessageBox.No)
+            if do_replace == QMessageBox.Yes:
+                offset = 0
+            else:
+                offset = os.path.getsize(dir)
+        else:
+            offset = 0
 
         # memorizes the last download/upload operation to enable transmission resume
         self.last_dest = dest_path
@@ -136,18 +150,21 @@ class FTPClient():
         self.last_size = filesize
         self.last_offset = None
 
-        self.start_download(src_path, dest_path, filesize)
+        self.start_download(src_path, dest_path, filesize, offset)
 
     '''
     starts downloading
     '''
-    def start_download(self, src_path, dest_path, filesize):
-        self.isTransfering = True
+    def start_download(self, src_path, dest_path, filesize, offset):
+        self.downloading = True
 
-        self.client.download_file(src_path, dest_path, self.funcWin.downloadBar, filesize)
+        self.client.download_file(src_path, dest_path, self.funcWin.downloadBar, filesize, offset)
 
         def download_complete():
-            self.isTransfering = False
+            self.last_offset = self.client.download_thread.offset
+            self.funcWin.serverResp.setText(self.client.resp)
+            self.funcWin.serverResp.moveCursor(self.funcWin.serverResp.textCursor().End)
+            self.downloading = False
 
         self.client.download_thread.complete_signal.connect(download_complete)
 
@@ -155,19 +172,19 @@ class FTPClient():
     uploads file without typing directory
     '''
     def upload_file(self):
-        if self.isTransfering:
+        if self.downloading or self.uploading:
             QMessageBox.information(None, 'Error', 'File transfering!', QMessageBox.Yes)
             return
-        if self.funcWin.pauseButton.text() == 'Resume':
-            self.funcWin.pauseButton.setText('Pause')
-            self.funcWin.pauseButton.clicked.disconnect(self.resume_transfer)
-            self.funcWin.pauseButton.clicked.connect(self.close_transfer)
+        if self.funcWin.uploadPause.text() == 'Resume':
+            self.funcWin.uploadPause.setText('Pause')
+            self.funcWin.uploadPause.clicked.disconnect(self.resume_upload_transfer)
+            self.funcWin.uploadPause.clicked.connect(self.close_upload_transfer)
         selected_dir = self.funcWin.treeWidget.currentItem()
         dest_folder = ''
         if selected_dir is not None:
             dest_folder = selected_dir.text(0)
             if dest_folder == '..' or selected_dir.text(1) != 'Folder':
-                QMessageBox.information(None, 'Error', 'File transfering!', QMessageBox.Yes)
+                QMessageBox.information(None, 'Error', 'Not a folder!', QMessageBox.Yes)
                 return
 
         chosen_file = QFileDialog.getOpenFileName(None, "Choose file to upload.", os.getcwd())
@@ -198,13 +215,16 @@ class FTPClient():
     starts uploading
     '''
     def start_upload(self, src_path, dest_path, offset):
-        self.isTransfering = True
-        self.client.upload_file(src_path, dest_path, self.funcWin.downloadBar, offset)
+        self.uploading = True
+        self.client.upload_file(src_path, dest_path, self.funcWin.uploadBar, offset)
 
         def upload_complete():
-            self.isTransfering = False
+            self.uploading = False
             self.funcWin.treeWidget.clear()
-            self.unfold()
+            dirs = self.unfold()
+            for dir in dirs:
+                if dir.text(0) == os.path.basename(self.last_src):
+                    self.last_offset = int(dir.text(3))
 
         self.client.upload_thread.complete_signal.connect(upload_complete)
 
@@ -252,7 +272,7 @@ class FTPClient():
     '''
     def init_filelist(self, dir):
         def refresh():
-            if self.isTransfering:
+            if self.downloading or self.uploading:
                 QMessageBox.information(None, 'Error', 'File transfering!', QMessageBox.Yes)
                 return
             root = self.funcWin.treeWidget
@@ -288,7 +308,7 @@ class FTPClient():
     creates a new folder
     '''
     def mkdir(self):
-        if self.isTransfering:
+        if self.downloading or self.uploading:
             QMessageBox.information(None, 'Error', 'File transfering!', QMessageBox.Yes)
             return
         self.client.mkd_cmd(self.funcWin.newdirLine.text())
@@ -299,15 +319,19 @@ class FTPClient():
     removes a folder recursively or removes a file
     '''
     def rmdir(self):
-        if self.isTransfering:
+        if self.downloading or self.uploading:
             QMessageBox.information(None, 'Error', 'File transfering!', QMessageBox.Yes)
             return
         ftp = self.client
         root = self.funcWin.treeWidget
-        selected_file = root.selectedItems()[0]
+        selected_file = root.currentItem()
+        if selected_file is None:
+            QMessageBox.information(None, 'Error', 'No directory selected!', QMessageBox.Yes)
+            return
         path = selected_file.text(0)
-        print(len(path))
         ftp.rmd_cmd(path)
+        if self.client.code != 250:
+            ftp.dele_cmd(path)
         root.clear()
         self.unfold()
 
@@ -315,12 +339,15 @@ class FTPClient():
     removes a folder recursively or removes a file
     '''
     def rename_file(self):
-        if self.isTransfering:
+        if self.downloading or self.uploading:
             QMessageBox.information(None, 'Error', 'File transfering!', QMessageBox.Yes)
             return
         ftp = self.client
         root = self.funcWin.treeWidget
-        selected_file = root.selectedItems()[0]
+        selected_file = root.currentItem()
+        if selected_file is None:
+            QMessageBox.information(None, 'Error', 'No file selected!', QMessageBox.Yes)
+            return
         path = selected_file.text(0)
         ftp.rnfr_cmd(path)
         if ftp.code != 350:
@@ -331,59 +358,51 @@ class FTPClient():
         self.unfold()
 
     '''
-    pauses a ongoing file transfer
+    pauses a ongoing file upload
     '''
-    def close_transfer(self):
-        if not self.isTransfering:
-            QMessageBox.information(None, 'Error', 'No file transfering!', QMessageBox.Yes)
+    def close_upload_transfer(self):
+        if not self.uploading:
+            QMessageBox.information(None, 'Error', 'No file uploading!', QMessageBox.Yes)
             return
-        # self.abor_signal = pyqtSignal()
-        # print("1")
-        # self.abor_signal.connect(self.client.uploadthd.abor)
-        # print("2")
-        # self.abor_signal.emit()
-        self.funcWin.pauseButton.setText("Resume")
-        self.funcWin.pauseButton.clicked.disconnect(self.close_transfer)
-        self.funcWin.pauseButton.clicked.connect(self.resume_transfer)
-        # upload
-        if self.last_size is None:
-            self.client.abor_cmd()
-            time.sleep(0.5)
-        #print("sum",self.client.uploadthd.sum)
-            self.funcWin.treeWidget.clear()
-            dirs = self.unfold()
-            try:
-                for dir in dirs:
-                    if dir.text(0) == os.path.basename(self.last_src):
-                        self.last_offset = int(dir.text(3))
-            except Exception as e:
-                print("2", str(e))
-        else:
-            print("downloading")
-            self.client.send_cmd('ABOR')
-            # self.client.recv_resp()
-        print(self.last_offset)
-        # self.client.data_s.close()
-        # self.client.recv_resp()
-        # self.last_offset = self.client.uploadthd.sum
-        # self.funcWin.treeWidget.clear()
-        # print("what", self.last_offset)
-        # self.unfold()
+
+        self.funcWin.uploadPause.setText("Resume")
+        self.funcWin.uploadPause.clicked.disconnect(self.close_upload_transfer)
+        self.funcWin.uploadPause.clicked.connect(self.resume_upload_transfer)
+        self.client.data_s.close()
+
+    '''
+    pauses a ongoing file download
+    '''
+    def close_download_transfer(self):
+        if not self.downloading:
+            QMessageBox.information(None, 'Error', 'No file downloading!', QMessageBox.Yes)
+            return
+        self.funcWin.downloadPause.setText("Resume")
+        self.funcWin.downloadPause.clicked.disconnect(self.close_download_transfer)
+        self.funcWin.downloadPause.clicked.connect(self.resume_download_transfer)
+        self.client.data_s.close()
 
     '''
     switches from pause to resume
     '''
-    def resume_transfer(self):
-        self.funcWin.pauseButton.setText("Pause")
-        if self.last_offset is None:
-            self.start_download(self.last_src, self.last_dest, self.last_size)
-            #self.client.download_file(self.last_src, self.last_dest, self.funcWin.downloadBar, self.last_size)
-        else:
-            self.start_upload(self.last_src, self.last_dest, self.last_offset)
-            #self.client.upload_file(self.last_src, self.last_dest, self.funcWin.downloadBar, self.last_offset)
+    def resume_download_transfer(self):
+        self.funcWin.downloadPause.setText("Pause")
+        self.start_download(self.last_src, self.last_dest, self.last_size, self.last_offset)
+
         print("resume from", self.last_offset)
-        self.funcWin.pauseButton.clicked.disconnect(self.resume_transfer)
-        self.funcWin.pauseButton.clicked.connect(self.close_transfer)
+        self.funcWin.downloadPause.clicked.disconnect(self.resume_download_transfer)
+        self.funcWin.downloadPause.clicked.connect(self.close_download_transfer)
+
+    '''
+    switches from pause to resume
+    '''
+    def resume_upload_transfer(self):
+        self.funcWin.uploadPause.setText("Pause")
+
+        self.start_upload(self.last_src, self.last_dest, self.last_offset)
+        print("resume from", self.last_offset)
+        self.funcWin.uploadPause.clicked.disconnect(self.resume_upload_transfer)
+        self.funcWin.uploadPause.clicked.connect(self.close_upload_transfer)
 
 
 if __name__ == '__main__':

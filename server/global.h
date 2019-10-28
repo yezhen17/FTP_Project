@@ -31,29 +31,32 @@
 #define LOGGED_IN 2
 #define FILE_TRANSFERING 3
 #define WAITING_RNTO 4
+
 #define NO_CONNECTION 0
 #define PASV_MODE 1
 #define TRANSFER_READY 2
 #define LISTENING 3
 #define READY_TO_CONNECT 4
+
 #define READ 0
 #define WRITE 1
 #define LIST 2
+
 #define BUFSIZE 8192
 #define MAX_CLIENTS FD_SETSIZE / 2
 
 struct client_info
 {
-    int connect_fd;  // 负责通信的连接
-    int transfer_fd; // 负责文件传输的连接
-    int state;       // 客户状态，包括：
-    int mode; // 文件传输模式
+    int connect_fd;  // fd for control 
+    int transfer_fd; // fd for file transfer
+    int state;       // state(logged in/not logged in/file transfering, etc.)
+    int mode; // file transfer mode, including preparing stages
     struct sockaddr_in addr;
-    int rw;
-    char filename[200];
-    char prefix[200];
-    char rename_file[200];
-    int start_pos;
+    int rw; // read or write or list
+    char filename[256]; // file to retrieve or store
+    char prefix[256]; 
+    char rename_file[256]; // file new name
+    int start_pos; // transfer offset
 };
 
 int listen_port;

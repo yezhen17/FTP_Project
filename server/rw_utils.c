@@ -9,7 +9,7 @@ void get_cmd(int fd, char *message, int message_len)
         int n = read(fd, message + p, message_len - p);
         if (n < 0)
         {
-            printf("Error read(): %s(%d)\n", strerror(errno), errno);
+            //printf("Error read(): %s(%d)\n", strerror(errno), errno);
             continue;
         }
         else if (n == 0)
@@ -42,7 +42,7 @@ int strip_crlf(char *sentence, int len)
 
 void send_resp(int fd, int code, char *custom_resp)
 {
-    char resp[200];
+    char resp[256];
     switch (code)
     {
     case 500:
@@ -97,7 +97,7 @@ void send_resp(int fd, int code, char *custom_resp)
         sprintf(resp, "%d %s\r\n", code, "No TCP connection was established.");
         break;
     case 426:
-        sprintf(resp, "%d %s\r\n", code, "Network failure, transmission wasn't finished");
+        sprintf(resp, "%d %s\r\n", code, "Transmission wasn't finished");
         break;
     case 451:
         sprintf(resp, "%d %s\r\n", code, "Failed to read/write file.");
@@ -124,7 +124,7 @@ int safe_send(int fd, char *buf, int len)
         n = write(fd, buf + p, len - p);
         if (n < 0)
         {
-            printf("Error write(): %s(%d)\n", strerror(errno), errno);
+            //printf("Error write(): %s(%d)\n", strerror(errno), errno);
             return 0;
         }
         else if (n == 0)
@@ -148,8 +148,8 @@ int safe_recv(int fd, char *buf, int len)
         n = read(fd, buf + p, len - p);
         if (n < 0)
         {
-            printf("Error read(): %s(%d)\n", strerror(errno), errno);
-            return 0;
+            //printf("Error read(): %s(%d)\n", strerror(errno), errno);
+            return -1;
         }
         else if (n == 0)
         {

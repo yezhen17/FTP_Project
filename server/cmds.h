@@ -1,3 +1,7 @@
+/*
+all commands, and the command router
+*/
+
 #ifndef CMDS_H
 #define CMDS_H
 

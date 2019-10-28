@@ -36,7 +36,7 @@ int manage_conn_fds(int cur_fd)
     }
     if (i == MAX_CLIENTS)
     {
-        printf("Error too many clients(): %s(%d)\n", strerror(errno), errno);
+        //printf("Error too many clients(): %s(%d)\n", strerror(errno), errno);
         return 0;
     }
     FD_SET(cur_fd, &allset);
