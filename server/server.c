@@ -160,6 +160,13 @@ int main(int argc, char **argv) {
                     clients[i].mode = TRANSFER_READY;
                     clients[i].state = FILE_TRANSFERING;                    
                 }
+                if (mode == PORT_MODE)
+                {
+                    if (clients[i].rw == READ)
+                    {
+                        clients[i].mode = TRANSFER_READY;
+                    }
+                }
                 if (mode == TRANSFER_READY)
                 {
                     if (clients[i].rw == WRITE)
@@ -169,7 +176,7 @@ int main(int argc, char **argv) {
                     if (clients[i].rw == READ)
                     {
                         char sentence[8];
-                        int len = recv(tmp_fd, sentence, 8, 0);
+                        int len = recv(tmp_fd, sentence, 8, MSG_DONTWAIT);
                         // empty string means connection loss
                         if (len <= 0)
                         {
@@ -279,6 +286,7 @@ void download_file(int idx)
             }
             else
             {
+                clients[idx].bytes += nbytes;
                 clients[idx].start_pos += nbytes;
                 fclose(f);
                 return;
@@ -328,6 +336,7 @@ void upload_file(int idx)
             }
             else
             {
+                clients[idx].bytes += nbytes;
                 fclose(f);
                 return;
             }        

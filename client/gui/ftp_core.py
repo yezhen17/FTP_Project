@@ -64,6 +64,7 @@ class Client():
         self.respBox = None
         self.upload_thread = None
         self.download_thread = None
+        self.statistics = None
 
 
     '''
@@ -157,10 +158,9 @@ class Client():
     '''
     QUIT command
     '''
-    @after_func
     def quit_cmd(self):
         self.send_cmd('QUIT')
-        self.recv_resp()
+        self.statistics = self.s.recv(1024).decode()
         self.s.close()
 
     '''
@@ -169,8 +169,6 @@ class Client():
     def abor_cmd(self):
         self.send_cmd('ABOR')
         self.recv_resp()
-        print(self.resp.split('\n')[-2])
-        #self.s.close()
 
     '''
     download file, first send TYPE I, then send PORT or PASV, 
@@ -186,11 +184,9 @@ class Client():
         if not net:
             QMessageBox.information(None, 'Error', 'PASV/PORT failure.', QMessageBox.Yes)
             return
-        print(src_path)
         dir = os.path.join(dest_path, os.path.basename(src_path))
         if offset != 0:
             self.rest_cmd(offset) # if offset is 0, don't send REST since it is useless
-        print(offset)
 
         self.retr_cmd(src_path, dir, bar, filesize, offset)
 
@@ -245,7 +241,6 @@ class Client():
         port = get_free_port(self.this_ip)
         #port = 20
         cmd = 'PORT ' + self.this_ip.replace('.', ',') + ',' + str(port // 256) + ',' + str(port % 256)
-        print(cmd)
         self.send_cmd(cmd)
         self.recv_resp()
         if self.code != 200:
@@ -282,7 +277,6 @@ class Client():
                 QMessageBox.information(None, 'Error', str(e), QMessageBox.Yes)
                 return
         self.recv_resp()
-        print(self.code)
         if self.code != 150:
             self.data_s.close()
             return

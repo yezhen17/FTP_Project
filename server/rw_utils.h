@@ -11,6 +11,9 @@ void get_cmd(int fd, char *message, int message_len);
 // strip the trailing CRLF
 int strip_crlf(char *sentence, int len);
 
+// send statistics when quit
+void send_statistics(int fd, int code, char *str1, char *str2, char *str3);
+
 // send a response according to code and response text
 void send_resp(int fd, int code, char *custom_resp);
 

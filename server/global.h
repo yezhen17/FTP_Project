@@ -37,6 +37,7 @@
 #define TRANSFER_READY 2
 #define LISTENING 3
 #define READY_TO_CONNECT 4
+#define PORT_MODE 5
 
 #define READ 0
 #define WRITE 1
@@ -57,6 +58,8 @@ struct client_info
     char prefix[256]; 
     char rename_file[256]; // file new name
     int start_pos; // transfer offset
+    int bytes; // how many bytes
+    int transfers; // how many tranfers
 };
 
 int listen_port;

@@ -39,6 +39,14 @@ int strip_crlf(char *sentence, int len)
     return i + 1;
 }
 
+void send_statistics(int fd, int code, char *str1, char *str2, char* str3)
+{
+    char resp[256];
+    sprintf(resp, "%d-%s\r\n%d-%s\r\n%d %s\r\n", code, str1, code, str2, code, str3);
+    int len = strlen(resp);
+    send(fd, resp, len, MSG_WAITALL);
+}
+
 
 void send_resp(int fd, int code, char *custom_resp)
 {

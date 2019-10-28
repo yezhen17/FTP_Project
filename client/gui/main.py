@@ -56,7 +56,6 @@ class FTPClient():
     def login(self):
         login_res = self.client.new_connect(self.homeWin.lineIP.text(), int(self.homeWin.linePort.text()))
         if login_res[0]:
-            print("yessir")
             if self.client.login(self.homeWin.lineEdit.text()):
                 self.homeWin.close()
                 self.funcWin.show()
@@ -104,10 +103,9 @@ class FTPClient():
     '''
     def close_connect(self):
         self.client.quit_cmd()
-        print(self.client.resp)
         self.resultWin = ResultWindow()
         self.resultWin.show()
-        self.resultWin.textBrowser.setText(self.client.resp)
+        self.resultWin.textBrowser.setText(self.client.statistics)
         self.resultWin.textBrowser.moveCursor(self.resultWin.textBrowser.textCursor().End)
 
     '''
@@ -132,7 +130,6 @@ class FTPClient():
         else:
             src_path = self.client.prefix + '/' + src_path
         dest_path = QFileDialog.getExistingDirectory(None, "Choose a folder.", os.getcwd())
-        print(src_path)
         dir = os.path.join(dest_path, os.path.basename(src_path))
         if os.path.exists(dir):
             do_replace = QMessageBox.information(None, 'Wait', 'Would you like to replace this file?',
@@ -241,7 +238,6 @@ class FTPClient():
             ret.isFile = '..'
 
         flst = self.client.list_cmd(None)
-        print(flst)
         if flst == '':
             return
         flst = flst.split('\n')[:-1]
@@ -252,7 +248,6 @@ class FTPClient():
             for i in range(len(file)):
                 if file[i] != '':
                     parsed_info.append(file[i])
-            print(parsed_info)
             item = QTreeWidgetItem(root)
             item.setText(0, parsed_info[8].strip('\r'))
             item.setText(2, ' '.join(parsed_info[5:8]))
@@ -279,7 +274,6 @@ class FTPClient():
             ftp = self.client
             file = root.currentItem()
             path = file.text(0)
-            print(file.isFile)
 
             # change a parent directory
             if file.isFile == '..':
@@ -381,6 +375,7 @@ class FTPClient():
         self.funcWin.downloadPause.clicked.disconnect(self.close_download_transfer)
         self.funcWin.downloadPause.clicked.connect(self.resume_download_transfer)
         self.client.data_s.close()
+        #self.client.abor_cmd()
 
     '''
     switches from pause to resume
@@ -388,8 +383,6 @@ class FTPClient():
     def resume_download_transfer(self):
         self.funcWin.downloadPause.setText("Pause")
         self.start_download(self.last_src, self.last_dest, self.last_size, self.last_offset)
-
-        print("resume from", self.last_offset)
         self.funcWin.downloadPause.clicked.disconnect(self.resume_download_transfer)
         self.funcWin.downloadPause.clicked.connect(self.close_download_transfer)
 
@@ -400,7 +393,6 @@ class FTPClient():
         self.funcWin.uploadPause.setText("Pause")
 
         self.start_upload(self.last_src, self.last_dest, self.last_offset)
-        print("resume from", self.last_offset)
         self.funcWin.uploadPause.clicked.disconnect(self.resume_upload_transfer)
         self.funcWin.uploadPause.clicked.connect(self.close_upload_transfer)
 

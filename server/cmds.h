@@ -45,6 +45,6 @@ void cmd_rnfr(char *param, int idx);
 
 void cmd_rnto(char *param, int idx);
 
-void prepare_transfer(char *param, int idx);
+int prepare_transfer(char *param, int idx);
 
 #endif

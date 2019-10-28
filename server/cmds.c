@@ -187,7 +187,12 @@ void cmd_quit(char *param, int idx)
         send_resp(fd, 504, NULL);
         return;
     }
-    send_resp(fd, 221, NULL);
+    char byteInfo[100];
+    char fileInfo[100];
+    sprintf(fileInfo, "You have transferred %d files.", clients[idx].transfers);
+    sprintf(byteInfo, "You have transferred %d bytes.", clients[idx].bytes);
+    send_statistics(fd, 221, fileInfo, byteInfo, "goodbye!");
+    //send_resp(fd, 221, NULL);
     close_trans_fd(idx);
     close_conn_fd(idx);
 }
@@ -308,19 +313,20 @@ void cmd_port(char *param, int idx)
     send_resp(fd, 200, "PORT command successful.");
 }
 
-void prepare_transfer(char *param, int idx) {
+int prepare_transfer(char *param, int idx) {
     
     int fd = clients[idx].connect_fd;
     int mode = clients[idx].mode;
     if (mode == NO_CONNECTION) // 有待考虑
     {
         send_resp(fd, 425, NULL);
-        return;
+        return 0;
     }
     if (mode == READY_TO_CONNECT)
     {
-        clients[idx].mode = TRANSFER_READY;
-        
+        //clients[idx].mode = TRANSFER_READY;
+        clients[idx].mode = PORT_MODE;
+
         int trans_fd = clients[idx].transfer_fd;
         struct sockaddr_in addr = clients[idx].addr;
         if (connect(trans_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
@@ -328,7 +334,7 @@ void prepare_transfer(char *param, int idx) {
             //printf("Error connect(): %s(%d)\n", strerror(errno), errno);
             close(trans_fd);
             send_resp(fd, 425, NULL);
-            return;
+            return 0;
         }
         send_resp(fd, 150, NULL);
         gen_absdir(clients[idx].prefix, param, clients[idx].filename);
@@ -339,6 +345,7 @@ void prepare_transfer(char *param, int idx) {
         gen_absdir(clients[idx].prefix, param, clients[idx].filename);
         send_resp(fd, 150, NULL);
     }
+    return 1;
 }
 
 void cmd_retr(char *param, int idx)
@@ -360,7 +367,12 @@ void cmd_retr(char *param, int idx)
     {
         fclose(f);    
     }
-    prepare_transfer(param, idx);
+    int i = prepare_transfer(param, idx);
+    if (i != 1) 
+    {
+        return;
+    }
+    clients[idx].transfers += 1;
     clients[idx].rw = READ;
     clients[idx].state = FILE_TRANSFERING;
 }
@@ -384,7 +396,12 @@ void cmd_stor(char *param, int idx)
     {
         fclose(f);
     }
-    prepare_transfer(param, idx);
+    int i = prepare_transfer(param, idx);
+    if (i != 1)
+    {
+        return;
+    }
+    clients[idx].transfers += 1;
     clients[idx].rw = WRITE;
     clients[idx].state = FILE_TRANSFERING;
 }
@@ -425,7 +442,7 @@ void cmd_mkd(char *param, int idx)
         return;
     }
     char dest[256];
-    char resp[256];
+    char resp[260];
     gen_absdir(clients[idx].prefix, param, dest);
     sprintf(resp, "\"%s\"", dest);
     if (mkdir(dest, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == 0) 
@@ -475,7 +492,7 @@ void cmd_pwd(char *param, int idx)
         send_resp(fd, 504, NULL);
         return;
     }
-    char resp[256];
+    char resp[260];
     // add double quotes
     sprintf(resp, "\"%s\"", clients[idx].prefix);
     send_resp(fd, 257, resp);
@@ -495,13 +512,21 @@ void cmd_list(char *param, int idx)
         }
         else
         {
-            prepare_transfer(dest, idx);
+            int i = prepare_transfer(dest, idx);
+            if (i != 1)
+            {
+                return;
+            }
             clients[idx].rw = LIST;
         }
     }
     else
     {
-        prepare_transfer(clients[idx].prefix, idx);
+        int i = prepare_transfer(clients[idx].prefix, idx);
+        if (i != 1)
+        {
+            return;
+        }
         clients[idx].rw = LIST;
     }
 }

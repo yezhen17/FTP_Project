@@ -17,6 +17,8 @@ void init_fd_manager(int fd)
         clients[i].state = NOT_LOGGED_IN;
         clients[i].mode = NO_CONNECTION;
         clients[i].start_pos = 0;
+        clients[i].transfers = 0;
+        clients[i].bytes = 0;
         strcpy(clients[i].prefix, root_folder);
     }
     FD_ZERO(&allset);
@@ -61,6 +63,8 @@ void close_conn_fd(int i)
         clients[i].state = NOT_LOGGED_IN;
         clients[i].mode = NO_CONNECTION;
         clients[i].start_pos = 0;
+        clients[i].transfers = 0;
+        clients[i].bytes = 0;
         strcpy(clients[i].prefix, root_folder); 
         FD_CLR(fd, &allset);
     }

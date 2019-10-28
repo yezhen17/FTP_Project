@@ -19,7 +19,6 @@ class DownloadThread(QThread):
         self.filesize = filesize
         self.offset = offset
         self.dir = dir
-        print("here",offset)
 
     def run(self):
         if self.offset == 0:
@@ -28,7 +27,6 @@ class DownloadThread(QThread):
             open_mode = 'ab'
         try:
             with open(self.dir, open_mode) as f:
-                print("dir",self.dir)
                 while True:
                     data = self.ftp.data_s.recv(8192)
                     if not data:
