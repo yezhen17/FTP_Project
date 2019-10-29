@@ -37,6 +37,7 @@ class DownloadThread(QThread):
                     f.write(data)
         except Exception as e:
             pass
+
         self.ftp.recv_resp()
         self.complete_signal.emit()
         self.exit()

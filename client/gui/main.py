@@ -36,6 +36,7 @@ class FTPClient():
         self.last_offset = None
         self.uploading = False
         self.downloading = False
+        self.closing = False
 
     '''
     initializes homewindow
@@ -99,14 +100,26 @@ class FTPClient():
         self.client.syst_cmd()
 
     '''
-    closes connection with client, closes current window, and shows a result window
+    attempts to close connection, close current window, and show a result window
     '''
-    def close_connect(self):
-        self.client.quit_cmd()
-        self.resultWin = ResultWindow()
-        self.resultWin.show()
-        self.resultWin.textBrowser.setText(self.client.statistics)
-        self.resultWin.textBrowser.moveCursor(self.resultWin.textBrowser.textCursor().End)
+    def close_connect(self, resp):
+        # is there is an ongoing transmission, ignore this attempt, pause the transmission and then close again
+        if resp == 'ask':
+            doClose = QMessageBox.information(None, 'Warning', 'Still tranfering, do you still want to leave?', QMessageBox.Yes|QMessageBox.No)
+            if doClose == QMessageBox.No:
+                return
+            else:
+                self.closing = True
+                if self.downloading:
+                    self.close_download_transfer()
+                else:
+                    self.close_upload_transfer()
+        else:
+            self.client.quit_cmd()
+            self.resultWin = ResultWindow()
+            self.resultWin.show()
+            self.resultWin.textBrowser.setText(self.client.statistics)
+            self.resultWin.textBrowser.moveCursor(self.resultWin.textBrowser.textCursor().End)
 
     '''
     downloads file without typing directory
@@ -136,8 +149,10 @@ class FTPClient():
                                     QMessageBox.Yes | QMessageBox.No)
             if do_replace == QMessageBox.Yes:
                 offset = 0
-            else:
+            elif do_replace == QMessageBox.No:
                 offset = os.path.getsize(dir)
+            else:
+                return
         else:
             offset = 0
 
@@ -154,14 +169,18 @@ class FTPClient():
     '''
     def start_download(self, src_path, dest_path, filesize, offset):
         self.downloading = True
-
+        self.funcWin.doClose = False
         self.client.download_file(src_path, dest_path, self.funcWin.downloadBar, filesize, offset)
 
         def download_complete():
+            self.downloading = False
+            self.funcWin.doClose = True
+            if self.closing:
+                self.funcWin.finally_close()
+                return
             self.last_offset = self.client.download_thread.offset
             self.funcWin.serverResp.setText(self.client.resp)
             self.funcWin.serverResp.moveCursor(self.funcWin.serverResp.textCursor().End)
-            self.downloading = False
 
         self.client.download_thread.complete_signal.connect(download_complete)
 
@@ -201,22 +220,43 @@ class FTPClient():
         else:
             dest_path = self.client.prefix + '/' + dest_path
 
+        offset = 0
+
+        if dest_folder:
+            self.client.cwd_cmd(dest_folder)
+        self.funcWin.treeWidget.clear()
+        dirs = self.unfold()
+        for dir in dirs:
+            if dir.text(0) == os.path.basename(src_path):
+                do_replace = QMessageBox.information(None, 'Wait', 'Would you like to replace this file?',
+                                                     QMessageBox.Yes | QMessageBox.No)
+                if do_replace == QMessageBox.Yes:
+                    offset = 0
+                else:
+                    offset = int(dir.text(3))
+
         # memorizes the last download/upload operation to enable transmission resume
         self.last_dest = dest_path
         self.last_src = src_path
         self.last_size = None
 
-        self.start_upload(src_path, dest_path, 0) # zero offset
+        self.start_upload(src_path, dest_path, offset)
 
     '''
     starts uploading
     '''
     def start_upload(self, src_path, dest_path, offset):
         self.uploading = True
+        self.funcWin.doClose = False
         self.client.upload_file(src_path, dest_path, self.funcWin.uploadBar, offset)
 
         def upload_complete():
+            self.funcWin.doClose = True
             self.uploading = False
+            if self.closing:
+                self.funcWin.finally_close()
+                return
+            #self.client.cwd_cmd(self.last_dest)
             self.funcWin.treeWidget.clear()
             dirs = self.unfold()
             for dir in dirs:
@@ -239,7 +279,7 @@ class FTPClient():
 
         flst = self.client.list_cmd(None)
         if flst == '':
-            return
+            return []
         flst = flst.split('\n')[:-1]
         items = []
         for file in flst:

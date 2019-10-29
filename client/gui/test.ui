@@ -117,7 +117,7 @@
           </font>
          </property>
          <property name="text">
-          <string>Ip</string>
+          <string>Ip:</string>
          </property>
         </widget>
        </item>
@@ -147,7 +147,7 @@
           </font>
          </property>
          <property name="text">
-          <string>Port</string>
+          <string>Port:</string>
          </property>
         </widget>
        </item>
@@ -174,7 +174,7 @@
           </font>
          </property>
          <property name="text">
-          <string>Password</string>
+          <string>Password:</string>
          </property>
         </widget>
        </item>

@@ -1,3 +1,8 @@
+###################################################
+# three windows, inherit from the QtDesigner generated files
+###################################################
+
+
 from PyQt5.QtWidgets import QMainWindow
 from func import *
 from result import *
@@ -15,10 +20,21 @@ class FuncWindow(QMainWindow, Ui_func):
         self.cwd = os.getcwd()
         self.local_dir = None
         self.renameBtn.setToolTip('Download a file from the server.')
+        self.doClose = True
         self.setFixedSize(self.width(), self.height()) # fix the window size
 
     def closeEvent(self, event):
-        self.close_signal.emit('close')
+
+        if self.doClose:
+            self.close_signal.emit('close')
+            event.accept()
+        else:
+            self.close_signal.emit('ask')
+            event.ignore()
+
+    def finally_close(self):
+        self.doClose = True
+        self.close()
 
 
 class ResultWindow(QMainWindow, Ui_Result):
@@ -31,10 +47,6 @@ class ResultWindow(QMainWindow, Ui_Result):
         def closeself():
             self.close()
         self.pushButton.clicked.connect(closeself)
-
-
-    def closeEvent(self, event):
-        self.close_signal.emit('close')
 
 
 class HomeWindow(QMainWindow, Ui_home):

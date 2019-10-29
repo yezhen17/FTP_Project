@@ -162,10 +162,7 @@ int main(int argc, char **argv) {
                 }
                 if (mode == PORT_MODE)
                 {
-                    if (clients[i].rw == READ)
-                    {
-                        clients[i].mode = TRANSFER_READY;
-                    }
+                    clients[i].mode = TRANSFER_READY;
                 }
                 if (mode == TRANSFER_READY)
                 {
@@ -305,19 +302,18 @@ void upload_file(int idx)
         return;
     }
     int code = 226;
-    int start_pos = clients[idx].start_pos;
     FILE *f;
     int nbytes;
     char buffer[BUFSIZE];
     memset(&buffer, 0, BUFSIZE);
     char *filename = clients[idx].filename;
-    if (start_pos == -1)
+    if (clients[idx].start_pos == 0)
     {
         f = fopen(filename, "wb");
     }
     else
     {
-        f = fopen(filename, "ab+");
+        f = fopen(filename, "rb+");
     }
     if (f == NULL)
     {
@@ -326,6 +322,7 @@ void upload_file(int idx)
     }
     else
     {
+        fseek(f, clients[idx].start_pos, SEEK_SET);
         if ((nbytes = safe_recv(clients[idx].transfer_fd, buffer, BUFSIZE)) > 0)
         {
             if (fwrite(buffer, 1, nbytes, f) < nbytes)
@@ -336,6 +333,7 @@ void upload_file(int idx)
             }
             else
             {
+                clients[idx].start_pos += nbytes;
                 clients[idx].bytes += nbytes;
                 fclose(f);
                 return;

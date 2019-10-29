@@ -74,7 +74,8 @@ class Client():
         cmd += '\r\n'
         try:
             self.s.send(cmd.encode('utf-8'))
-        except:
+        except Exception as e:
+            print(str(e), cmd)
             self.win.close()
             QMessageBox.information(None, 'Error', 'Server shut down.', QMessageBox.Yes)
 
@@ -88,7 +89,8 @@ class Client():
             self.code = int(last_line.split(' ')[0])
             self.resp += resp
             return last_line
-        except:
+        except Exception as e:
+            #print(str(e))
             self.win.close()
             QMessageBox.information(None, 'Error', 'Server shut down.', QMessageBox.Yes)
             return ''
@@ -99,6 +101,7 @@ class Client():
     @after_func
     def new_connect(self, ip, port):
         try:
+            socket.setdefaulttimeout(1)
             self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         except Exception as e:
             return False, str(e)
@@ -195,7 +198,7 @@ class Client():
     then send REST (or not), finally send STOR
     param: src_path(str), dest_path(str), bar(ProgressBar), size(int)
     '''
-    def upload_file(self, src_path, dest_path, bar, filesize):
+    def upload_file(self, src_path, dest_path, bar, offset):
         self.type_cmd()
         if self.isPasv:
             net = self.pasv_cmd()
@@ -204,9 +207,9 @@ class Client():
         if not net:
             QMessageBox.information(None, 'Error', 'PASV/PORT failure.', QMessageBox.Yes)
             return
-        if filesize != 0:
-            self.rest_cmd(filesize)
-        self.stor_cmd(src_path, dest_path, bar, filesize)
+        if offset != 0:
+            self.rest_cmd(offset)
+        self.stor_cmd(src_path, dest_path, bar, offset)
 
     '''
     REST command
