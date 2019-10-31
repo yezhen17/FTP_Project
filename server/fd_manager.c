@@ -19,7 +19,7 @@ void init_fd_manager(int fd)
         clients[i].start_pos = 0;
         clients[i].transfers = 0;
         clients[i].bytes = 0;
-        strcpy(clients[i].prefix, root_folder);
+        strcpy(clients[i].prefix, "/");
     }
     FD_ZERO(&allset);
     FD_SET(fd, &allset);
@@ -65,7 +65,7 @@ void close_conn_fd(int i)
         clients[i].start_pos = 0;
         clients[i].transfers = 0;
         clients[i].bytes = 0;
-        strcpy(clients[i].prefix, root_folder); 
+        strcpy(clients[i].prefix, "/"); 
         FD_CLR(fd, &allset);
     }
 }

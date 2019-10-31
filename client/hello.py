@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'test.ui'
+# Form implementation generated from reading ui file 'hello.ui'
 #
 # Created by: PyQt5 UI code generator 5.13.0
 #
@@ -91,6 +91,25 @@ class Ui_home(object):
         self.linePort.setObjectName("linePort")
         self.horizontalLayout_3.addWidget(self.linePort)
         self.verticalLayout.addLayout(self.horizontalLayout_3)
+        self.horizontalLayout_4 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_4.setObjectName("horizontalLayout_4")
+        self.label_4 = QtWidgets.QLabel(self.verticalLayoutWidget)
+        font = QtGui.QFont()
+        font.setFamily("Comic Sans MS")
+        font.setPointSize(10)
+        font.setBold(False)
+        font.setWeight(50)
+        self.label_4.setFont(font)
+        self.label_4.setObjectName("label_4")
+        self.horizontalLayout_4.addWidget(self.label_4)
+        self.user = QtWidgets.QLineEdit(self.verticalLayoutWidget)
+        font = QtGui.QFont()
+        font.setFamily("Comic Sans MS")
+        font.setPointSize(10)
+        self.user.setFont(font)
+        self.user.setObjectName("user")
+        self.horizontalLayout_4.addWidget(self.user)
+        self.verticalLayout.addLayout(self.horizontalLayout_4)
         self.horizontalLayout = QtWidgets.QHBoxLayout()
         self.horizontalLayout.setObjectName("horizontalLayout")
         self.label = QtWidgets.QLabel(self.verticalLayoutWidget)
@@ -136,6 +155,7 @@ class Ui_home(object):
         self.login_hint.setText(_translate("home", "Supports anonymous login only. "))
         self.label_2.setText(_translate("home", "Ip:"))
         self.label_3.setText(_translate("home", "Port:"))
+        self.label_4.setText(_translate("home", "User:"))
         self.label.setText(_translate("home", "Password:"))
         self.lineEdit.setPlaceholderText(_translate("home", "example: ftp@mails.tsinghua.edu.cn"))
         self.pushButton.setText(_translate("home", "Login"))

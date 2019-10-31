@@ -6,7 +6,7 @@
 from PyQt5.QtWidgets import QMainWindow
 from func import *
 from result import *
-from test import *
+from hello import *
 import os
 
 
@@ -21,12 +21,14 @@ class FuncWindow(QMainWindow, Ui_func):
         self.local_dir = None
         self.renameBtn.setToolTip('Download a file from the server.')
         self.doClose = True
+        self.serverError = False
         self.setFixedSize(self.width(), self.height()) # fix the window size
 
     def closeEvent(self, event):
 
         if self.doClose:
-            self.close_signal.emit('close')
+            if not self.serverError:
+                self.close_signal.emit('close')
             event.accept()
         else:
             self.close_signal.emit('ask')
@@ -43,6 +45,7 @@ class ResultWindow(QMainWindow, Ui_Result):
     def __init__(self, parent=None):
         super(ResultWindow, self).__init__(parent)
         self.setupUi(self)
+        self.setFixedSize(self.width(), self.height())  # fix the window size
 
         def closeself():
             self.close()

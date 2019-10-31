@@ -317,7 +317,7 @@ int prepare_transfer(char *param, int idx) {
     
     int fd = clients[idx].connect_fd;
     int mode = clients[idx].mode;
-    if (mode == NO_CONNECTION) // 有待考虑
+    if (mode == NO_CONNECTION)
     {
         send_resp(fd, 425, NULL);
         return 0;
@@ -337,12 +337,12 @@ int prepare_transfer(char *param, int idx) {
             return 0;
         }
         send_resp(fd, 150, NULL);
-        gen_absdir(clients[idx].prefix, param, clients[idx].filename);
+        //gen_absdir(clients[idx].prefix, param, clients[idx].filename);
     }
     if (mode == LISTENING)
     {
         clients[idx].mode = PASV_MODE;
-        gen_absdir(clients[idx].prefix, param, clients[idx].filename);
+        //gen_absdir(clients[idx].prefix, param, clients[idx].filename);
         send_resp(fd, 150, NULL);
     }
     return 1;
@@ -356,7 +356,9 @@ void cmd_retr(char *param, int idx)
         send_resp(fd, 504, NULL);
         return;
     }
-    gen_absdir(clients[idx].prefix, param, clients[idx].filename);
+    char rel[256];
+    gen_absdir(clients[idx].prefix, param, rel);
+    add_root(root_folder, rel, clients[idx].filename);
     FILE *f;
     if ((f = fopen(clients[idx].filename, "rb+")) == NULL)
     {
@@ -385,7 +387,9 @@ void cmd_stor(char *param, int idx)
         send_resp(fd, 504, NULL);
         return;
     }
-    gen_absdir(clients[idx].prefix, param, clients[idx].filename);
+    char rel[256];
+    gen_absdir(clients[idx].prefix, param, rel);
+    add_root(root_folder, rel, clients[idx].filename);
     FILE *f;
     if ((f = fopen(clients[idx].filename, "ab+")) == NULL)
     {
@@ -444,8 +448,10 @@ void cmd_mkd(char *param, int idx)
     char dest[256];
     char resp[260];
     gen_absdir(clients[idx].prefix, param, dest);
+    char absdest[512];
+    add_root(root_folder, dest, absdest);
     sprintf(resp, "\"%s\"", dest);
-    if (mkdir(dest, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == 0) 
+    if (mkdir(absdest, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == 0) 
     {
         send_resp(fd, 250, resp);
     }
@@ -473,7 +479,9 @@ void cmd_cwd(char *param, int idx)
 
     char dest[256];
     gen_absdir(clients[idx].prefix, param, dest);
-    if (folder_isvalid(dest))
+    char absdest[512];
+    add_root(root_folder, dest, absdest);
+    if (folder_isvalid(absdest))
     {
         strcpy(clients[idx].prefix, dest);
         send_resp(fd, 250, NULL);
@@ -505,14 +513,16 @@ void cmd_list(char *param, int idx)
     {
         char dest[256];
         gen_absdir(clients[idx].prefix, param, dest);
-        if (!file_isvalid(dest) && !folder_isvalid(dest))
+        //char absdest[512];
+        add_root(root_folder, dest, clients[idx].filename);
+        if (!file_isvalid(clients[idx].filename) && !folder_isvalid(clients[idx].filename))
         {
             send_resp(fd, 451, NULL);
             return;
         }
         else
         {
-            int i = prepare_transfer(dest, idx);
+            int i = prepare_transfer(clients[idx].filename, idx);
             if (i != 1)
             {
                 return;
@@ -522,7 +532,9 @@ void cmd_list(char *param, int idx)
     }
     else
     {
-        int i = prepare_transfer(clients[idx].prefix, idx);
+        //char absdest[512];
+        add_root(root_folder, clients[idx].prefix, clients[idx].filename);
+        int i = prepare_transfer(clients[idx].filename, idx);
         if (i != 1)
         {
             return;
@@ -548,7 +560,9 @@ void cmd_rmd(char *param, int idx)
     }
     char dest[256];
     gen_absdir(clients[idx].prefix, param, dest);
-    if (rm_emptydir(dest) == 0)
+    char absdest[512];
+    add_root(root_folder, dest, absdest);
+    if (rm_emptydir(absdest) == 0)
     {
         send_resp(fd, 250, NULL);
     }
@@ -575,7 +589,9 @@ void cmd_dele(char *param, int idx)
     }
     char dest[256];
     gen_absdir(clients[idx].prefix, param, dest);
-    if (recursive_rmdir(dest) == 0)
+    char absdest[512];
+    add_root(root_folder, dest, absdest);
+    if (recursive_rmdir(absdest) == 0)
     {
         send_resp(fd, 250, NULL);
     }
@@ -602,10 +618,12 @@ void cmd_rnfr(char *param, int idx)
     }
     char dest[256];
     gen_absdir(clients[idx].prefix, param, dest);
-    if (file_isvalid(dest))
+    char absdest[512];
+    add_root(root_folder, dest, absdest);
+    if (file_isvalid(absdest))
     {
         clients[idx].state = WAITING_RNTO;
-        strcpy(clients[idx].rename_file, dest);
+        strcpy(clients[idx].rename_file, absdest);
         send_resp(fd, 350, NULL);
     }
     else
@@ -638,9 +656,10 @@ void cmd_rnto(char *param, int idx)
     }
     char dest[256];
     gen_absdir(clients[idx].prefix, param, dest);
-
-    char shell_cmd[512];
-    sprintf(shell_cmd, "mv \"%s\" \"%s\"", clients[idx].rename_file, dest);
+    char absdest[512];
+    add_root(root_folder, dest, absdest);
+    char shell_cmd[1100];
+    sprintf(shell_cmd, "mv \"%s\" \"%s\"", clients[idx].rename_file, absdest);
     if (system(shell_cmd) == -1)
     {
         //printf("Error running shell: %s(%d)\n", strerror(errno), errno);

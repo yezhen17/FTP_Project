@@ -54,9 +54,9 @@ struct client_info
     int mode; // file transfer mode, including preparing stages
     struct sockaddr_in addr;
     int rw; // read or write or list
-    char filename[256]; // file to retrieve or store
-    char prefix[256]; 
-    char rename_file[256]; // file new name
+    char filename[512]; // file to retrieve or store
+    char prefix[128]; 
+    char rename_file[512]; // file new name
     int start_pos; // transfer offset
     int bytes; // how many bytes
     int transfers; // how many tranfers

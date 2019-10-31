@@ -10,7 +10,7 @@ from ftp_core import *
 
 
 class DownloadThread(QThread):
-    bar_signal = pyqtSignal(int)
+    bar_signal = pyqtSignal(str)
     complete_signal = pyqtSignal()
 
     def __init__(self, ftp, filesize, offset, dir):
@@ -33,7 +33,7 @@ class DownloadThread(QThread):
                         break
                     self.offset += len(data)
                     time.sleep(0.001) # control the speed to avoid jamming
-                    self.bar_signal.emit(self.offset)
+                    self.bar_signal.emit(str(self.offset))
                     f.write(data)
         except Exception as e:
             pass
@@ -44,7 +44,7 @@ class DownloadThread(QThread):
 
 
 class UploadThread(QThread):
-    bar_signal = pyqtSignal(int)
+    bar_signal = pyqtSignal(str)
     complete_signal = pyqtSignal()
 
     def __init__(self, ftp, filesize, offset, dest_path):
@@ -67,11 +67,10 @@ class UploadThread(QThread):
                         break
                     progress += len(data)
                     time.sleep(0.001)
-                    self.bar_signal.emit(progress)
+                    self.bar_signal.emit(str(progress))
             self.ftp.data_s.close()
             self.ftp.recv_resp()
         except Exception as e:
             self.ftp.recv_resp()
-
         self.complete_signal.emit()
         self.exit()

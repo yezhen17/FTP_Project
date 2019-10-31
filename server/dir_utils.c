@@ -20,11 +20,11 @@ void gen_absdir(char *prefix, char *dir, char *dest)
     {
         if (prefix[len - 1] == '/')
         {
-            sprintf(dest + 2, "%s%s", prefix, dir);
+            sprintf(dest, "%s%s", prefix, dir + 2);
         }
         else
         {
-            sprintf(dest + 2, "%s/%s", prefix, dir);
+            sprintf(dest, "%s/%s", prefix, dir + 2);
         }
     }
     else
@@ -37,6 +37,19 @@ void gen_absdir(char *prefix, char *dir, char *dest)
         {
             sprintf(dest, "%s/%s", prefix, dir);
         }
+    }
+}
+
+void add_root(char *prefix, char *dir, char *dest)
+{
+    int len = strlen(prefix);
+    if (prefix[len - 1] == '/')
+    {
+        sprintf(dest, "%s%s", prefix, dir + 1);
+    }
+    else
+    {
+        sprintf(dest, "%s%s", prefix, dir);
     }
 }
 

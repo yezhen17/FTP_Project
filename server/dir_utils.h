@@ -8,6 +8,9 @@ directory related utils
 // generate absolute directory in dest
 void gen_absdir(char *prefix, char *dir, char *dest);
 
+// add root folder
+void add_root(char *prefix, char *dir, char *dest);
+
 // check whether the path belongs to a regular file
 int file_isvalid(char *pth);
 

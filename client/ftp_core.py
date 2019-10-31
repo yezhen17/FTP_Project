@@ -1,8 +1,6 @@
-import ftplib as ftp
 import socket
 import os
 import random
-import struct
 import time
 from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtCore import *
@@ -65,7 +63,7 @@ class Client():
         self.upload_thread = None
         self.download_thread = None
         self.statistics = None
-
+        self.serverShut = False
 
     '''
     processes command
@@ -73,11 +71,16 @@ class Client():
     def send_cmd(self, cmd):
         cmd += '\r\n'
         try:
+            #print(cmd)
             self.s.send(cmd.encode('utf-8'))
         except Exception as e:
-            print(str(e), cmd)
+            #print(str(e))
+            if not self.serverShut:
+                self.serverShut = True
+                QMessageBox.information(None, 'Error', 'Server shut down.', QMessageBox.Yes)
+            self.win.doClose = True
+            self.win.serverError = True
             self.win.close()
-            QMessageBox.information(None, 'Error', 'Server shut down.', QMessageBox.Yes)
 
     '''
     processes response
@@ -85,14 +88,30 @@ class Client():
     def recv_resp(self):
         try:
             resp = self.s.recv(1024).decode()
+            #print(resp)
             last_line = resp.split('\r\n')[-2]
+            #print(last_line.split(' '))
             self.code = int(last_line.split(' ')[0])
+            first_digit = self.code // 100
+            if first_digit == 1:
+                resp = "<font color = blue>" + resp
+            elif first_digit == 2 or first_digit == 3:
+                resp = "<font color = green>" + resp
+            elif first_digit == 4:
+                resp = "<font color = yellow>" + resp
+            else:
+                resp = "<font color = red>" + resp
+            resp += "</font><br>"
             self.resp += resp
             return last_line
         except Exception as e:
             #print(str(e))
+            if not self.serverShut:
+                self.serverShut = True
+                QMessageBox.information(None, 'Error', 'Server shut down.', QMessageBox.Yes)
+            self.win.doClose = True
+            self.win.serverError = True
             self.win.close()
-            QMessageBox.information(None, 'Error', 'Server shut down.', QMessageBox.Yes)
             return ''
 
     '''
@@ -101,7 +120,7 @@ class Client():
     @after_func
     def new_connect(self, ip, port):
         try:
-            socket.setdefaulttimeout(1)
+            #socket.setdefaulttimeout(1)
             self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         except Exception as e:
             return False, str(e)
@@ -119,8 +138,8 @@ class Client():
     param: passwd(str)
     '''
     @after_func
-    def login(self, passwd):
-        self.send_cmd('USER anonymous')
+    def login(self, user, passwd):
+        self.send_cmd('USER ' + user)
         self.recv_resp()
         if self.code != 331:
             return False
@@ -286,7 +305,7 @@ class Client():
 
 
         def update_bar(progress):
-            bar.setValue(progress * 100 / filesize)
+            bar.setValue(int(progress) * 100 / filesize)
 
         self.download_thread = DownloadThread(self, filesize, offset, dest_path)
         self.download_thread.bar_signal.connect(update_bar)
@@ -320,7 +339,7 @@ class Client():
         self.recv_resp()
 
         def update_bar(progress):
-            bar.setValue(progress * 100 / filesize)
+            bar.setValue(int(progress) * 100 / filesize)
 
         self.upload_thread = UploadThread(self, filesize, offset, src_path)
         self.upload_thread.bar_signal.connect(update_bar)
@@ -402,7 +421,7 @@ class Client():
             net = self.port_cmd()
         if not net:
             QMessageBox.information(None, 'Error', 'PASV/PORT failure.', QMessageBox.Yes)
-            return ''
+            return None
         if dest_path is not None:
             self.send_cmd('LIST ' + dest_path)
         else:
@@ -414,7 +433,7 @@ class Client():
                 self.data_s.connect(self.data_addr)
             except Exception as e:
                 QMessageBox.information(None, 'Error', str(e), QMessageBox.Yes)
-                return ''
+                return None
         else:
             try:
                 new_s, _ = self.data_s.accept()
@@ -422,7 +441,7 @@ class Client():
                 self.data_s = new_s
             except Exception as e:
                 QMessageBox.information(None, 'Error', str(e), QMessageBox.Yes)
-                return ''
+                return None
         self.recv_resp()
 
         list = ''
